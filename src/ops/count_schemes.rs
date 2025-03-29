@@ -24,13 +24,13 @@ pub fn get_counts(value: &JsonValue, counts: &mut HashMap<String, usize>) {
                 // continue recursively parsing
                 get_counts(val, counts);
             }
-        },
+        }
         JsonValue::Array(arr) => {
             for item in arr {
                 // recursively parse each value in the array
                 get_counts(item, counts);
             }
-        },
-        _ => {},
+        }
+        _ => {}
     }
 }

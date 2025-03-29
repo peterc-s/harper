@@ -4,7 +4,11 @@ use json::JsonValue;
 use tldextract::TldExtractor;
 use url::Url;
 
-pub fn get_domain_tree(value: &JsonValue, domain_tree: &mut HashMap<String, HashMap<String, usize>>, tld_extractor: &TldExtractor) {
+pub fn get_domain_tree(
+    value: &JsonValue,
+    domain_tree: &mut HashMap<String, HashMap<String, usize>>,
+    tld_extractor: &TldExtractor,
+) {
     match value {
         JsonValue::Object(map) => {
             for (key, val) in map.iter() {
@@ -18,12 +22,16 @@ pub fn get_domain_tree(value: &JsonValue, domain_tree: &mut HashMap<String, Hash
                                 match tld_extractor.extract(domain) {
                                     Ok(res) => {
                                         domain_tree
-                                            .entry(res.domain.unwrap_or_default() + "." + &res.suffix.unwrap_or_default().to_string())
+                                            .entry(
+                                                res.domain.unwrap_or_default()
+                                                    + "."
+                                                    + &res.suffix.unwrap_or_default().to_string(),
+                                            )
                                             .or_insert_with(HashMap::new)
                                             .entry(res.subdomain.unwrap_or_default())
                                             .and_modify(|count| *count += 1)
                                             .or_insert(1);
-                                        },
+                                    }
                                     _ => {}
                                 }
                             }
@@ -34,18 +42,22 @@ pub fn get_domain_tree(value: &JsonValue, domain_tree: &mut HashMap<String, Hash
                 // continue recursively parsing
                 get_domain_tree(val, domain_tree, tld_extractor);
             }
-        },
+        }
         JsonValue::Array(arr) => {
             for item in arr {
                 // recursively parse each value in the array
                 get_domain_tree(item, domain_tree, tld_extractor);
             }
-        },
-        _ => {},
+        }
+        _ => {}
     }
 }
 
-pub fn get_domain_tree_full(value: &JsonValue, domain_tree: &mut HashMap<String, HashMap<String, HashMap<String, usize>>>, tld_extractor: &TldExtractor) {
+pub fn get_domain_tree_full(
+    value: &JsonValue,
+    domain_tree: &mut HashMap<String, HashMap<String, HashMap<String, usize>>>,
+    tld_extractor: &TldExtractor,
+) {
     match value {
         JsonValue::Object(map) => {
             for (key, val) in map.iter() {
@@ -66,10 +78,8 @@ pub fn get_domain_tree_full(value: &JsonValue, domain_tree: &mut HashMap<String,
                                             .entry(res.subdomain.unwrap_or_default())
                                             .and_modify(|count| *count += 1)
                                             .or_insert(1);
-                                        },
-                                    _ => {
-
                                     }
+                                    _ => {}
                                 }
                             }
                         }
@@ -79,14 +89,14 @@ pub fn get_domain_tree_full(value: &JsonValue, domain_tree: &mut HashMap<String,
                 // continue recursively parsing
                 get_domain_tree_full(val, domain_tree, tld_extractor);
             }
-        },
+        }
         JsonValue::Array(arr) => {
             for item in arr {
                 // recursively parse each value in the array
                 get_domain_tree_full(item, domain_tree, tld_extractor);
             }
-        },
-        _ => {},
+        }
+        _ => {}
     }
 }
 
@@ -100,8 +110,8 @@ fn get_total_count(sub_map: &HashMap<String, HashMap<String, usize>>) -> usize {
 pub fn print_sorted_with_full<F, K>(
     domain_tree: &HashMap<String, HashMap<String, HashMap<String, usize>>>,
     mut sort_closure: F,
-    indent: usize
-) where 
+    indent: usize,
+) where
     F: FnMut(&(&String, usize)) -> K,
     K: Ord,
 {
@@ -113,7 +123,7 @@ pub fn print_sorted_with_full<F, K>(
 
     for (tld, tld_count) in tlds {
         println!("{} ({})", tld, tld_count);
-        
+
         let mut slds: Vec<(&String, usize)> = domain_tree[tld]
             .iter()
             .map(|(sld, subdomains)| (sld, subdomains.values().sum::<usize>()))
@@ -122,12 +132,19 @@ pub fn print_sorted_with_full<F, K>(
 
         for (sld, sld_count) in slds {
             println!("{:indent$}  {} ({})", "", sld, sld_count, indent = indent);
-            
-            let mut subdomains: Vec<(&String, usize)> = domain_tree[tld][sld].iter().map(|(a, b)| (a, *b)).collect();
+
+            let mut subdomains: Vec<(&String, usize)> =
+                domain_tree[tld][sld].iter().map(|(a, b)| (a, *b)).collect();
             subdomains.sort_by_key(&mut sort_closure);
 
             for (sub, count) in subdomains {
-                println!("{:indent$}    {} ({})", "", sub, count, indent = indent + indent);
+                println!(
+                    "{:indent$}    {} ({})",
+                    "",
+                    sub,
+                    count,
+                    indent = indent + indent
+                );
             }
         }
     }
@@ -136,8 +153,8 @@ pub fn print_sorted_with_full<F, K>(
 pub fn print_sorted_with<F, K>(
     domain_tree: &HashMap<String, HashMap<String, usize>>,
     mut sort_closure: F,
-    indent: usize
-) where 
+    indent: usize,
+) where
     F: FnMut(&(&String, usize)) -> K,
     K: Ord,
 {
@@ -149,11 +166,9 @@ pub fn print_sorted_with<F, K>(
 
     for (sld_tld, sld_tld_count) in sld_tlds {
         println!("{} ({})", sld_tld, sld_tld_count);
-        
-        let mut subdomains: Vec<(&String, usize)> = domain_tree[sld_tld]
-            .iter()
-            .map(|(a, b)| (a, *b))
-            .collect();
+
+        let mut subdomains: Vec<(&String, usize)> =
+            domain_tree[sld_tld].iter().map(|(a, b)| (a, *b)).collect();
         subdomains.sort_by_key(&mut sort_closure);
 
         for (sub, count) in subdomains {
