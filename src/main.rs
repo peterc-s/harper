@@ -4,8 +4,8 @@ use chrono::{DateTime, Local};
 use clap::{Parser, Subcommand};
 use std::fs;
 use std::io::{IsTerminal, Read};
-use std::{cmp::Reverse, collections::HashMap, io};
 use std::process::exit;
+use std::{cmp::Reverse, collections::HashMap, io};
 
 mod ops;
 use ops::search_for::search_for;
