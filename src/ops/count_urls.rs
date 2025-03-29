@@ -1,172 +1,174 @@
-use std::collections::HashMap;
-
 use json::JsonValue;
+use std::{collections::HashMap, net::IpAddr};
 use tldextract::TldExtractor;
 use url::Url;
 
-pub fn get_domain_tree(
-    value: &JsonValue,
-    domain_tree: &mut HashMap<String, HashMap<String, usize>>,
-    tld_extractor: &TldExtractor,
-) {
-    match value {
-        JsonValue::Object(map) => {
-            for (key, val) in map.iter() {
-                // look for "url" fields
-                if key == "url" {
-                    if let Some(url) = val.as_str() {
-                        // parse the url
-                        if let Ok(parsed_url) = Url::parse(url) {
-                            // get the host name
-                            if let Some(domain) = parsed_url.host_str() {
-                                if let Ok(res) =  tld_extractor.extract(domain) {
-                                    domain_tree
-                                        .entry(
-                                            res.domain.unwrap_or_default()
-                                                + "."
-                                                + &res.suffix.unwrap_or_default().to_string(),
-                                        )
-                                        .or_default()
-                                        .entry(res.subdomain.unwrap_or_default())
-                                        .and_modify(|count| *count += 1)
-                                        .or_insert(1);
-                                }
-                            }
-                        }
-                    }
-                }
+#[derive(Debug, Default)]
+pub struct DomainNode {
+    pub count: usize,
+    pub children: HashMap<String, DomainNode>,
+}
 
-                // continue recursively parsing
-                get_domain_tree(val, domain_tree, tld_extractor);
-            }
+pub fn build_domain_tree(
+    har_data: &JsonValue,
+    tree: &mut DomainNode,
+    tld_extractor: &TldExtractor,
+    merge_tld: bool,
+) {
+    // get entries array from HAR
+    let entries = match &har_data["log"]["entries"] {
+        JsonValue::Array(arr) => arr,
+        _ => {
+            println!("Invalid HAR structure - missing log.entries.");
+            return;
         }
-        JsonValue::Array(arr) => {
-            for item in arr {
-                // recursively parse each value in the array
-                get_domain_tree(item, domain_tree, tld_extractor);
+    };
+
+    // iterate through entries
+    for entry in entries {
+        // get request part
+        let request = match &entry["request"] {
+            JsonValue::Object(obj) => obj,
+            _ => {
+                eprintln!("Entry missing request object");
+                continue;
             }
-        }
-        _ => {}
+        };
+
+        // get url from request part
+        let url = match &request["url"] {
+            JsonValue::String(s) => s,
+            JsonValue::Short(s) => s.as_str(),
+            _ => {
+                eprintln!("Request missing valid URL");
+                continue;
+            }
+        };
+        
+        // process the URL, adding it into the tree
+        process_url(&url, tree, tld_extractor, merge_tld);
     }
 }
 
-pub fn get_domain_tree_full(
-    value: &JsonValue,
-    domain_tree: &mut HashMap<String, HashMap<String, HashMap<String, usize>>>,
+fn process_url(
+    url_str: &str,
+    tree: &mut DomainNode,
     tld_extractor: &TldExtractor,
+    merge_tld: bool,
 ) {
-    match value {
-        JsonValue::Object(map) => {
-            for (key, val) in map.iter() {
-                // look for "url" fields
-                if key == "url" {
-                    if let Some(url) = val.as_str() {
-                        // parse the url
-                        if let Ok(parsed_url) = Url::parse(url) {
-                            // get the host name
-                            if let Some(domain) = parsed_url.host_str() {
-                                if let Ok(res) = tld_extractor.extract(domain) {
-                                    domain_tree
-                                        .entry(res.suffix.unwrap_or_default())
-                                        .or_default()
-                                        .entry(res.domain.unwrap_or_default())
-                                        .or_default()
-                                        .entry(res.subdomain.unwrap_or_default())
-                                        .and_modify(|count| *count += 1)
-                                        .or_insert(1);
-                                }
-                            }
-                        }
-                    }
-                }
+    // parse URL
+    let Ok(parsed_url) = Url::parse(url_str) else {
+        eprintln!("Failed to parse URL: {}", url_str);
+        return;
+    };
 
-                // continue recursively parsing
-                get_domain_tree_full(val, domain_tree, tld_extractor);
-            }
-        }
-        JsonValue::Array(arr) => {
-            for item in arr {
-                // recursively parse each value in the array
-                get_domain_tree_full(item, domain_tree, tld_extractor);
-            }
-        }
-        _ => {}
+    // get parts of a url
+    let parts = if parsed_url.scheme() == "data" {
+        // if it's schema is data, just use data:
+        vec!["data:".to_string()]
+    } else {
+        // get host from parsed url
+        let Some(host) = parsed_url.host_str() else {
+            eprintln!("URL has no host: {}", parsed_url);
+            return;
+        };
+
+        // get the parts of the host string
+        get_domain_parts(host, tld_extractor, merge_tld)
+    };
+
+    // add parts to the tree
+    let mut current = tree;
+    for part in parts {
+        current = current
+            .children
+            .entry(part)
+            .or_default();
+        current.count += 1;
     }
 }
 
-fn get_total_count(sub_map: &HashMap<String, HashMap<String, usize>>) -> usize {
-    sub_map
-        .values()
-        .map(|subdomains| subdomains.values().sum::<usize>())
-        .sum()
-}
+fn get_domain_parts(host: &str, tld_extractor: &TldExtractor, merge_tld: bool) -> Vec<String> {
+    // handle IP addresses
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return vec![format!("ip:{}", ip)];
+    }
 
-pub fn print_sorted_with_full<F, K>(
-    domain_tree: &HashMap<String, HashMap<String, HashMap<String, usize>>>,
-    mut sort_closure: F,
-    indent: usize,
-) where
-    F: FnMut(&(&String, usize)) -> K,
-    K: Ord,
-{
-    let mut tlds: Vec<(&String, usize)> = domain_tree
-        .iter()
-        .map(|(tld, slds)| (tld, get_total_count(slds)))
-        .collect();
-    tlds.sort_by_key(&mut sort_closure);
+    // handle invalid results
+    let Ok(extracted) = tld_extractor.extract(host) else {
+        eprintln!("Failed to extract TLD from: {}", host);
+        return vec![format!("invalid:{}", host)];
+    };
 
-    for (tld, tld_count) in tlds {
-        println!("{} ({})", tld, tld_count);
+    let mut parts = Vec::new();
 
-        let mut slds: Vec<(&String, usize)> = domain_tree[tld]
-            .iter()
-            .map(|(sld, subdomains)| (sld, subdomains.values().sum::<usize>()))
+    // add domain and suffix
+    if merge_tld {
+        if let (Some(domain), Some(suffix)) = (&extracted.domain, &extracted.suffix) {
+            parts.push(format!("{}.{}", domain, suffix));
+        } else if let Some(suffix) = &extracted.suffix {
+            parts.push(suffix.to_string());
+        } else if let Some(domain) = &extracted.domain {
+            parts.push(domain.to_string());
+        }
+    } else {
+        if let Some(suffix) = &extracted.suffix {
+            parts.push(suffix.to_string());
+        }
+        if let Some(domain) = &extracted.domain {
+            parts.push(domain.to_string());
+        }
+    }
+
+    // add subdomain
+    if let Some(subdomain) = &extracted.subdomain {
+        let mut sub_parts: Vec<_> = subdomain
+            .split('.')
             .collect();
-        slds.sort_by_key(&mut sort_closure);
-
-        for (sld, sld_count) in slds {
-            println!("{:indent$}  {} ({})", "", sld, sld_count, indent = indent);
-
-            let mut subdomains: Vec<(&String, usize)> =
-                domain_tree[tld][sld].iter().map(|(a, b)| (a, *b)).collect();
-            subdomains.sort_by_key(&mut sort_closure);
-
-            for (sub, count) in subdomains {
-                println!(
-                    "{:indent$}    {} ({})",
-                    "",
-                    sub,
-                    count,
-                    indent = indent + indent
-                );
-            }
-        }
+        sub_parts.reverse();
+        parts.extend(
+            sub_parts
+                .into_iter()
+                .map(|s| s.to_string())
+        );
+    } else {
+        parts.push("".into());
     }
+
+    // if none of the parts exist
+    if parts.is_empty() {
+        parts.push("unknown".to_string());
+    }
+
+    parts
 }
 
-pub fn print_sorted_with<F, K>(
-    domain_tree: &HashMap<String, HashMap<String, usize>>,
-    mut sort_closure: F,
-    indent: usize,
-) where
-    F: FnMut(&(&String, usize)) -> K,
+pub fn print_tree<F, K>(node: &DomainNode, sort_closure: &mut F)
+where
+    F: FnMut(&(&String, &DomainNode)) -> K,
     K: Ord,
 {
-    let mut sld_tlds: Vec<(&String, usize)> = domain_tree
-        .iter()
-        .map(|(sld_tld, subdomain)| (sld_tld, subdomain.values().sum::<usize>()))
-        .collect();
-    sld_tlds.sort_by_key(&mut sort_closure);
+    // recursively print the tree levels
+    print_level(&node.children, 0, sort_closure);
+}
 
-    for (sld_tld, sld_tld_count) in sld_tlds {
-        println!("{} ({})", sld_tld, sld_tld_count);
+fn print_level<F, K>(children: &HashMap<String, DomainNode>, depth: usize, sort_closure: &mut F)
+where
+    F: FnMut(&(&String, &DomainNode)) -> K,
+    K: Ord,
+{
+    // get entries as a vector
+    let mut entries: Vec<_> = children.iter().collect();
+    // sort them
+    entries.sort_by_key(|e| sort_closure(e));
 
-        let mut subdomains: Vec<(&String, usize)> =
-            domain_tree[sld_tld].iter().map(|(a, b)| (a, *b)).collect();
-        subdomains.sort_by_key(&mut sort_closure);
+    // iterate through entries
+    for (key, node) in entries {
+        // print each entry
+        let indent = "    ".repeat(depth);
+        println!("{}{} ({})", indent, key, node.count);
 
-        for (sub, count) in subdomains {
-            println!("{:indent$}    {} ({})", "", sub, count, indent = indent);
-        }
+        // print its children
+        print_level(&node.children, depth + 1, sort_closure);
     }
 }

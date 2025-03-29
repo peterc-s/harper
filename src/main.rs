@@ -123,28 +123,20 @@ fn main() {
                 .naive_mode(false)
                 .build();
 
+            let mut domain_tree = count_urls::DomainNode::default();
+            count_urls::build_domain_tree(
+                &parsed,
+                &mut domain_tree,
+                &tld_extractor,
+                count_args.merge_tld
+            );
+
             match count_args.sort {
                 SortBy::Alpha => {
-                    if count_args.merge_tld {
-                        let mut domain_tree = HashMap::new();
-                        count_urls::get_domain_tree(&parsed, &mut domain_tree, &tld_extractor);
-                        count_urls::print_sorted_with(&domain_tree, |a| a.0.clone(), 4);
-                    } else {
-                        let mut domain_tree = HashMap::new();
-                        count_urls::get_domain_tree_full(&parsed, &mut domain_tree, &tld_extractor);
-                        count_urls::print_sorted_with_full(&domain_tree, |a| a.0.clone(), 4);
-                    }
+                    count_urls::print_tree(&domain_tree, &mut |(name, _)| name.to_string());
                 }
                 SortBy::Frequency => {
-                    if count_args.merge_tld {
-                        let mut domain_tree = HashMap::new();
-                        count_urls::get_domain_tree(&parsed, &mut domain_tree, &tld_extractor);
-                        count_urls::print_sorted_with(&domain_tree, |a| Reverse(a.1), 4);
-                    } else {
-                        let mut domain_tree = HashMap::new();
-                        count_urls::get_domain_tree_full(&parsed, &mut domain_tree, &tld_extractor);
-                        count_urls::print_sorted_with_full(&domain_tree, |a| Reverse(a.1), 4);
-                    }
+                    count_urls::print_tree(&domain_tree, &mut |(_, node)| Reverse(node.count));
                 }
             }
         }
