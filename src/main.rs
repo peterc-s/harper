@@ -1,15 +1,16 @@
-use base64::prelude::BASE64_STANDARD_NO_PAD;
-use base64::Engine;
+use base64::{prelude::BASE64_STANDARD_NO_PAD, Engine};
 use chrono::{DateTime, Local};
 use clap::{Parser, Subcommand};
-use std::fs;
-use std::io::{IsTerminal, Read};
-use std::process::exit;
-use std::{cmp::Reverse, collections::HashMap, io};
+use std::{
+    fs,
+    io::{self, IsTerminal, Read},
+    process::exit,
+    cmp::Reverse,
+    collections::HashMap
+};
 
 mod ops;
-use ops::search_for::search_for;
-use ops::{count_requests, count_schemes, count_urls, filter};
+use ops::{count_requests, count_schemes, count_urls, filter, search_for};
 use tldextract::TldOption;
 
 #[derive(Parser, Debug)]
@@ -161,7 +162,7 @@ fn main() {
         }
 
         Commands::SearchFor(search_args) => {
-            let matches = search_for(&parsed, &search_args.string);
+            let matches = search_for::search_for(&parsed, &search_args.string);
             for result in matches {
                 println!("Found in request {}:", result.request_num);
                 println!(
@@ -171,7 +172,7 @@ fn main() {
             }
 
             let b64_search_string = BASE64_STANDARD_NO_PAD.encode(&search_args.string);
-            let matches_b64 = search_for(&parsed, &b64_search_string);
+            let matches_b64 = search_for::search_for(&parsed, &b64_search_string);
             for result in matches_b64 {
                 println!("Found base64 encoded in request {}:", result.request_num);
                 println!(
