@@ -19,20 +19,17 @@ pub fn get_domain_tree(
                         if let Ok(parsed_url) = Url::parse(url) {
                             // get the host name
                             if let Some(domain) = parsed_url.host_str() {
-                                match tld_extractor.extract(domain) {
-                                    Ok(res) => {
-                                        domain_tree
-                                            .entry(
-                                                res.domain.unwrap_or_default()
-                                                    + "."
-                                                    + &res.suffix.unwrap_or_default().to_string(),
-                                            )
-                                            .or_insert_with(HashMap::new)
-                                            .entry(res.subdomain.unwrap_or_default())
-                                            .and_modify(|count| *count += 1)
-                                            .or_insert(1);
-                                    }
-                                    _ => {}
+                                if let Ok(res) =  tld_extractor.extract(domain) {
+                                    domain_tree
+                                        .entry(
+                                            res.domain.unwrap_or_default()
+                                                + "."
+                                                + &res.suffix.unwrap_or_default().to_string(),
+                                        )
+                                        .or_default()
+                                        .entry(res.subdomain.unwrap_or_default())
+                                        .and_modify(|count| *count += 1)
+                                        .or_insert(1);
                                 }
                             }
                         }
@@ -68,18 +65,15 @@ pub fn get_domain_tree_full(
                         if let Ok(parsed_url) = Url::parse(url) {
                             // get the host name
                             if let Some(domain) = parsed_url.host_str() {
-                                match tld_extractor.extract(domain) {
-                                    Ok(res) => {
-                                        domain_tree
-                                            .entry(res.suffix.unwrap_or_default())
-                                            .or_insert_with(HashMap::new)
-                                            .entry(res.domain.unwrap_or_default())
-                                            .or_insert_with(HashMap::new)
-                                            .entry(res.subdomain.unwrap_or_default())
-                                            .and_modify(|count| *count += 1)
-                                            .or_insert(1);
-                                    }
-                                    _ => {}
+                                if let Ok(res) = tld_extractor.extract(domain) {
+                                    domain_tree
+                                        .entry(res.suffix.unwrap_or_default())
+                                        .or_default()
+                                        .entry(res.domain.unwrap_or_default())
+                                        .or_default()
+                                        .entry(res.subdomain.unwrap_or_default())
+                                        .and_modify(|count| *count += 1)
+                                        .or_insert(1);
                                 }
                             }
                         }

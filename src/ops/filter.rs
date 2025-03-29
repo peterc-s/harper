@@ -1,5 +1,5 @@
 use chrono::{DateTime, Local};
-use json::{object, JsonValue};
+use json::JsonValue;
 
 pub fn filter_by_time(value: &mut JsonValue, time: DateTime<Local>, after: bool) -> Option<()> {
     let log = match value {
@@ -29,7 +29,7 @@ pub fn filter_by_time(value: &mut JsonValue, time: DateTime<Local>, after: bool)
             Some(Some(s)) => s,
             _ => return false,
         };
-        let Ok(start_time) = DateTime::parse_from_rfc3339(&*start_time) else {
+        let Ok(start_time) = DateTime::parse_from_rfc3339(start_time) else {
             return false;
         };
 

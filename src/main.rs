@@ -106,18 +106,12 @@ fn main() {
 
     let mut parsed = json::parse(&contents).expect("Could not parse file as json.");
 
-    match args.before {
-        Some(dt) => {
-            filter::filter_by_time(&mut parsed, dt, false).expect("Invalid HAR file.");
-        }
-        _ => {}
+    if let Some(dt) = args.before {
+        filter::filter_by_time(&mut parsed, dt, false).expect("Invalid HAR file.");
     }
 
-    match args.after {
-        Some(dt) => {
-            filter::filter_by_time(&mut parsed, dt, true).expect("Invalid HAR file.");
-        }
-        _ => {}
+    if let Some(dt) = args.after {
+        filter::filter_by_time(&mut parsed, dt, true).expect("Invalid HAR file.");
     }
 
     match args.command {
@@ -160,7 +154,7 @@ fn main() {
             count_schemes::get_counts(&parsed, &mut counts);
 
             let mut counts_vec: Vec<(&String, &usize)> =
-                counts.iter().map(|(a, b)| (a, b)).collect();
+                counts.iter().collect();
             counts_vec.sort_by_key(|a| Reverse(a.1));
 
             for (scheme, count) in counts_vec {
