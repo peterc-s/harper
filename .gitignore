@@ -1,2 +1,4 @@
 /target
 *.har
+.idea
+.DS_Store
