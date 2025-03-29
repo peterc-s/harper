@@ -14,7 +14,7 @@ pub fn get_domain_tree(
             for (key, val) in map.iter() {
                 // look for "url" fields
                 if key == "url" {
-                    if let JsonValue::String(url) = val {
+                    if let Some(url) = val.as_str() {
                         // parse the url
                         if let Ok(parsed_url) = Url::parse(url) {
                             // get the host name
@@ -63,7 +63,7 @@ pub fn get_domain_tree_full(
             for (key, val) in map.iter() {
                 // look for "url" fields
                 if key == "url" {
-                    if let JsonValue::String(url) = val {
+                    if let Some(url) = val.as_str() {
                         // parse the url
                         if let Ok(parsed_url) = Url::parse(url) {
                             // get the host name
