@@ -44,7 +44,7 @@ pub fn build_domain_tree(
                 continue;
             }
         };
-        
+
         // process the URL, adding it into the tree
         process_url(&url, tree, tld_extractor, merge_tld);
     }
@@ -80,10 +80,7 @@ fn process_url(
     // add parts to the tree
     let mut current = tree;
     for part in parts {
-        current = current
-            .children
-            .entry(part)
-            .or_default();
+        current = current.children.entry(part).or_default();
         current.count += 1;
     }
 }
@@ -122,15 +119,9 @@ fn get_domain_parts(host: &str, tld_extractor: &TldExtractor, merge_tld: bool) -
 
     // add subdomain
     if let Some(subdomain) = &extracted.subdomain {
-        let mut sub_parts: Vec<_> = subdomain
-            .split('.')
-            .collect();
+        let mut sub_parts: Vec<_> = subdomain.split('.').collect();
         sub_parts.reverse();
-        parts.extend(
-            sub_parts
-                .into_iter()
-                .map(|s| s.to_string())
-        );
+        parts.extend(sub_parts.into_iter().map(|s| s.to_string()));
     } else {
         parts.push("".into());
     }

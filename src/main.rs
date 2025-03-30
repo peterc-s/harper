@@ -1,16 +1,18 @@
 use base64::{prelude::BASE64_STANDARD_NO_PAD, Engine};
 use chrono::{DateTime, Local};
 use clap::{Parser, Subcommand};
+use hickory_resolver::proto::rr::RecordType;
+use hickory_resolver::Resolver;
 use std::{
+    cmp::Reverse,
+    collections::HashMap,
     fs,
     io::{self, IsTerminal, Read},
     process::exit,
-    cmp::Reverse,
-    collections::HashMap
 };
 
 mod ops;
-use ops::{count_requests, count_schemes, count_urls, filter, search_for};
+use ops::{count_requests, count_schemes, count_urls, filter, list_domains, search_for};
 use tldextract::TldOption;
 
 #[derive(Parser, Debug)]
@@ -45,6 +47,9 @@ enum Commands {
 
     /// Return the contents of the HAR.
     Output,
+
+    /// Check if urls are using DNSSEC
+    DNSSECAudit,
 }
 
 #[derive(Debug, clap::Args)]
@@ -129,7 +134,7 @@ fn main() {
                 &parsed,
                 &mut domain_tree,
                 &tld_extractor,
-                count_args.merge_tld
+                count_args.merge_tld,
             );
 
             match count_args.sort {
@@ -146,8 +151,7 @@ fn main() {
             let mut counts = HashMap::new();
             count_schemes::get_counts(&parsed, &mut counts);
 
-            let mut counts_vec: Vec<(&String, &usize)> =
-                counts.iter().collect();
+            let mut counts_vec: Vec<(&String, &usize)> = counts.iter().collect();
             counts_vec.sort_by_key(|a| Reverse(a.1));
 
             for (scheme, count) in counts_vec {
@@ -184,6 +188,33 @@ fn main() {
 
         Commands::Output => {
             println!("{}", json::stringify_pretty(parsed, 4));
+        }
+
+        Commands::DNSSECAudit => {
+            let mut domains: Vec<String> = list_domains::list_domains(&parsed);
+            domains.sort_by_key(|x| x.chars().rev().collect::<String>());
+
+            let resolver = Resolver::default().unwrap();
+
+            for domain in domains {
+                let resp = resolver.lookup(domain.clone() + ".", RecordType::ANY);
+                let Ok(resp) = resp else {
+                    println!("{}: DNS Lookup Failed", domain);
+                    continue;
+                };
+
+                let mut sig_found = false;
+
+                for record in resp.records() {
+                    sig_found |= record.record_type() == RecordType::RRSIG;
+                }
+
+                if sig_found {
+                    println!("DNSSEC Signature found for {}", domain)
+                } else {
+                    println!("{} Doesn't seem to use DNSSEC", domain)
+                }
+            }
         }
     }
 }

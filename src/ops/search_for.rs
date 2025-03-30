@@ -39,11 +39,7 @@ pub fn search_for<'a>(value: &'a JsonValue, search_str: &str) -> Vec<SearchResul
         };
 
         // entry-level fields
-        check_fields(
-            entry,
-            &[("time", "startedDateTime")],
-            ""
-        );
+        check_fields(entry, &[("time", "startedDateTime")], "");
 
         // request fields
         check_fields(
@@ -57,7 +53,7 @@ pub fn search_for<'a>(value: &'a JsonValue, search_str: &str) -> Vec<SearchResul
                 ("query_string", "queryString"),
                 ("post_data", "postData"),
             ],
-            "request"
+            "request",
         );
 
         // response fields
@@ -72,7 +68,7 @@ pub fn search_for<'a>(value: &'a JsonValue, search_str: &str) -> Vec<SearchResul
                 ("content", "content"),
                 ("redirect_url", "redirectURL"),
             ],
-            "response"
+            "response",
         );
 
         if !in_fields.is_empty() {
