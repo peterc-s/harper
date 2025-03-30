@@ -11,7 +11,7 @@ use std::{
     process::ExitCode,
 };
 use tldextract::TldOption;
-use serde_json;
+use serde_json::{self, error::Category};
 
 mod ops;
 use ops::{count_requests, count_schemes, count_urls, filter, search_for};
@@ -114,27 +114,19 @@ fn parse_har(input: &str) -> Result<Har> {
         let line = e.line();
         let column = e.column();
 
-        // get missing field name
+        // get error string and class
         let err_str = e.to_string();
-        let field_name = err_str
-            .split("missing field `")
-            .nth(1)
-            .and_then(|s| s.split('`').next())
-            .unwrap_or("unknown field");
+        let error_class = e.classify();
 
-        // prepare context lines
+        // get surrounding lines of context
         let lines: Vec<&str> = input.lines().collect();
-        // go to 0-based
         let line_index = line.saturating_sub(1);
-        // show 5 lines before
         let start = line_index.saturating_sub(5);
-        // show 5 lines after
         let end = (line_index + 5).min(lines.len());
-
-        // build context display
         let context_lines = lines.get(start..end).unwrap_or_default();
         let error_line_in_context = line_index.saturating_sub(start);
-        
+
+
         let mut context_str = String::new();
         for (i, line) in context_lines.iter().enumerate() {
             // add source
@@ -145,8 +137,8 @@ fn parse_har(input: &str) -> Result<Har> {
             if i == error_line_in_context {
                 let pointer = format!(
                     "{}{}",
-                    " ".repeat(column.saturating_sub(1)), // alignment
-                    "^-- Expected field here".purple().bold()
+                    " ".repeat(column.saturating_sub(1)),
+                    "^-- Error occurred here".purple().bold()
                 );
                 context_str.push_str(&pointer);
                 context_str.push('\n');
@@ -158,11 +150,31 @@ fn parse_har(input: &str) -> Result<Har> {
             context_str.pop();
         }
 
+        // create error message based off error class
+        let error_msg = match error_class {
+            Category::Syntax => format!(
+                "{}: {}",
+                "JSON syntax error".red().bold(),
+                err_str.split(" at ").next().unwrap_or(&err_str)
+            ),
+            Category::Eof => "Unexpected end of JSON input".red().bold().to_string(),
+            Category::Data => {
+                if let Some(field) = err_str.strip_prefix("missing field `")
+                    .and_then(|s| s.split('`').next())
+                {
+                    format!("{}: `{}`", "Missing required field".red().bold(), field)
+                } else {
+                    format!("{}: {}", "Data validation error".red().bold(), err_str)
+                }
+            }
+            _ => format!("{}: {}", "JSON parsing error".red().bold(), err_str),
+        };
+
         anyhow!(
-            "validation failed at line {line}:{column}\n\
-             {}: `{field_name}`\n\
+            "HAR validation failed at line {line}:{column}\n\
+             {}\n\
              {}:\n{}\n",
-            "Missing required field".red().bold(),
+            error_msg,
             "Context".yellow().bold(),
             context_str
         )
