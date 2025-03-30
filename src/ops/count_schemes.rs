@@ -1,30 +1,17 @@
+use crate::Har;
 use std::collections::HashMap;
-
-use json::JsonValue;
 use url::Url;
 
-pub fn get_counts(value: &JsonValue, counts: &mut HashMap<String, usize>) {
-    if let JsonValue::Array(entries) = &value["log"]["entries"] {
-        for entry in entries {
-            let url_json = &entry["request"]["url"];
-            let url_str = match url_json {
-                JsonValue::String(s) => Some(s.as_str()),
-                JsonValue::Short(s) => Some(s.as_str()),
-                _ => None,
-            };
-
-            let count_key = match url_str {
-                Some(url) => match Url::parse(url) {
-                    Ok(parsed_url) => parsed_url.scheme().to_string(),
-                    Err(_) => "Bad URL".into(),
-                },
-                None => {
-                    eprintln!("BAD JSON FOR URL: {:?}", url_json);
-                    "Bad JSON".into()
-                }
-            };
-
-            *counts.entry(count_key).or_insert(0) += 1;
-        }
+pub fn get_counts(har: &Har, counts: &mut HashMap<String, usize>) {
+    for entry in &har.log.entries {
+        let url_str = &entry.request.url;
+        let count_key = match Url::parse(url_str) {
+            Ok(parsed_url) => parsed_url.scheme().to_string(),
+            Err(_) => {
+                eprintln!("Invalid URL format: {}", url_str);
+                "Bad URL".into()
+            }
+        };
+        *counts.entry(count_key).or_insert(0) += 1;
     }
 }

@@ -1,5 +1,5 @@
-use json::JsonValue;
+use crate::Har;
 
-pub fn get_counts(value: &JsonValue) -> usize {
-    value["log"]["entries"].len()
+pub fn get_counts(har: &Har) -> usize {
+    har.log.entries.len()
 }

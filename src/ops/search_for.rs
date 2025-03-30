@@ -1,4 +1,5 @@
-use json::JsonValue;
+use crate::har::{Har, Request};
+use serde::Serialize;
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
@@ -8,84 +9,128 @@ pub struct SearchResult<'a> {
     pub url: String,
     pub method: String,
     pub in_fields: Vec<String>,
-    pub request_json: &'a JsonValue,
+    pub request: &'a Request,
 }
 
-pub fn search_for<'a>(value: &'a JsonValue, search_str: &str) -> Vec<SearchResult<'a>> {
-    let mut out = Vec::new();
-
-    let entries = match &value["log"]["entries"] {
-        JsonValue::Array(entries) => entries,
-        _ => panic!("Invalid HAR file."),
+macro_rules! check_fields {
+    (
+        $obj:expr,
+        $prefix:expr,
+        [$(($field:literal, $expr:expr)),+ $(,)?],
+        $search_str:expr,
+        $in_fields:expr
+    ) => {
+        $(
+            check_serialised_field(
+                $expr,
+                $field,
+                $search_str,
+                $in_fields,
+                $prefix,
+            );
+        )+
     };
-
-    for (i, entry) in entries.iter().enumerate() {
-        let mut in_fields = Vec::new();
-        let request = &entry["request"];
-        let response = &entry["response"];
-
-        // field checking
-        let mut check_fields = |parent: &JsonValue, fields: &[(&str, &str)], prefix: &str| {
-            // iterate through different field names and their JSON equivalents
-            for (field_name, json_path) in fields {
-                // get the json value of the field
-                let value = &parent[*json_path];
-
-                // check if it contains the search string
-                if value.to_string().contains(search_str) {
-                    in_fields.push(format!("{}_{}", prefix, field_name));
-                }
+    (
+        $obj:expr,
+        $prefix:expr,
+        [$(($field:literal, $expr:expr, maybe)),+ $(,)?],
+        $search_str:expr,
+        $in_fields:expr
+    ) => {
+        $(
+            if let Some(value) = $expr {
+                check_serialised_field(
+                    value,
+                    $field,
+                    $search_str,
+                    $in_fields,
+                    $prefix,
+                );
             }
-        };
+        )+
+    };
+}
 
-        // entry-level fields
-        check_fields(
-            entry,
-            &[("time", "startedDateTime")],
-            ""
-        );
-
-        // request fields
-        check_fields(
-            request,
-            &[
-                ("method", "method"),
-                ("url", "url"),
-                ("http_version", "httpVersion"),
-                ("headers", "headers"),
-                ("cookies", "cookies"),
-                ("query_string", "queryString"),
-                ("post_data", "postData"),
-            ],
-            "request"
-        );
-
-        // response fields
-        check_fields(
-            response,
-            &[
-                ("status", "status"),
-                ("status_text", "statusText"),
-                ("http_version", "httpVersion"),
-                ("headers", "headers"),
-                ("cookies", "cookies"),
-                ("content", "content"),
-                ("redirect_url", "redirectURL"),
-            ],
-            "response"
-        );
-
-        if !in_fields.is_empty() {
-            out.push(SearchResult {
-                request_num: i + 1,
-                time: entry["startedDateTime"].to_string(),
-                url: request["url"].to_string(),
-                method: request["method"].to_string(),
-                in_fields,
-                request_json: request,
-            });
+fn check_serialised_field<T: Serialize>(
+    value: &T,
+    field_name: &str,
+    search_str: &str,
+    in_fields: &mut Vec<String>,
+    prefix: &str,
+) {
+    if let Ok(json_str) = serde_json::to_string(value) {
+        if json_str.contains(search_str) {
+            let field = if prefix.is_empty() {
+                field_name.to_string()
+            } else {
+                format!("{}_{}", prefix, field_name)
+            };
+            in_fields.push(field);
         }
     }
+}
 
-    out
+pub fn search_for<'a>(har: &'a Har, search_str: &'a str) -> Vec<SearchResult<'a>> {
+    har.log
+        .entries
+        .iter()
+        .enumerate()
+        .filter_map(|(i, entry)| {
+            let mut in_fields = Vec::new();
+            let request = &entry.request;
+            let response = &entry.response;
+
+            // Entry-level fields
+            check_serialised_field(
+                &entry.started_date_time,
+                "startedDateTime",
+                search_str,
+                &mut in_fields,
+                "",
+            );
+
+            // Request fields
+            check_fields!(
+                request,
+                "request",
+                [
+                    ("method", &request.method),
+                    ("url", &request.url),
+                    ("http_version", &request.http_version),
+                    ("headers", &request.headers),
+                    ("cookies", &request.cookies),
+                    ("query_string", &request.query_string),
+                    ("post_data", &request.post_data),
+                ],
+                search_str,
+                &mut in_fields
+            );
+
+            // Response fields
+            check_fields!(
+                response,
+                "response",
+                [
+                    ("status", &response.status),
+                    ("status_text", &response.status_text),
+                    ("http_version", &response.http_version),
+                    ("headers", &response.headers),
+                    ("cookies", &response.cookies),
+                    ("content", &response.content),
+                    ("redirect_url", &response.redirect_url),
+                ],
+                search_str,
+                &mut in_fields
+            );
+
+            in_fields.is_empty().then(|| SearchResult {
+                request_num: i + 1,
+                time: entry.started_date_time.clone(),
+                url: request.url.clone(),
+                method: request.method.clone(),
+                in_fields,
+                request: &entry.request,
+            })
+        })
+        .collect()
 }
