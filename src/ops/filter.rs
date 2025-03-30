@@ -1,7 +1,7 @@
 use chrono::{DateTime, Local};
 use crate::Har;
 
-pub fn filter_by_time(har: &mut Har, time: DateTime<Local>, after: bool) -> Option<()> {
+pub fn filter_by_time(har: &mut Har, time: DateTime<Local>, after: bool) {
     har.log.entries.retain(|entry| {
         let start_time = match DateTime::parse_from_rfc3339(&entry.started_date_time) {
             Ok(t) => t,
@@ -14,6 +14,4 @@ pub fn filter_by_time(har: &mut Har, time: DateTime<Local>, after: bool) -> Opti
             start_time <= time
         }
     });
-    
-    Some(())
 }

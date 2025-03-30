@@ -123,14 +123,18 @@ pub fn search_for<'a>(har: &'a Har, search_str: &'a str) -> Vec<SearchResult<'a>
                 &mut in_fields
             );
 
-            in_fields.is_empty().then(|| SearchResult {
-                request_num: i + 1,
-                time: entry.started_date_time.clone(),
-                url: request.url.clone(),
-                method: request.method.clone(),
-                in_fields,
-                request: &entry.request,
-            })
+            if !in_fields.is_empty() {
+                Some(SearchResult {
+                    request_num: i + 1,
+                    time: entry.started_date_time.clone(),
+                    url: request.url.clone(),
+                    method: request.method.clone(),
+                    in_fields,
+                    request: &entry.request,
+                })
+            } else {
+                None
+            }
         })
         .collect()
 }

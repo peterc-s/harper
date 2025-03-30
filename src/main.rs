@@ -195,11 +195,11 @@ fn run() -> Result<()> {
     let mut parsed = parse_har(&contents)?;
 
     if let Some(dt) = args.before {
-        filter::filter_by_time(&mut parsed, dt, false).expect("Invalid HAR file.");
+        filter::filter_by_time(&mut parsed, dt, false);
     }
 
     if let Some(dt) = args.after {
-        filter::filter_by_time(&mut parsed, dt, true).expect("Invalid HAR file.");
+        filter::filter_by_time(&mut parsed, dt, true);
     }
 
     match args.command {
