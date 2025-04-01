@@ -3,6 +3,8 @@ use base64::{prelude::BASE64_STANDARD_NO_PAD, Engine};
 use chrono::{DateTime, Local};
 use clap::{Parser, Subcommand, error::ErrorKind, CommandFactory};
 use colored::Colorize;
+use hickory_resolver::proto::rr::RecordType;
+use hickory_resolver::Resolver;
 use std::{
     cmp::Reverse,
     collections::HashMap,
@@ -14,7 +16,7 @@ use tldextract::TldOption;
 use serde_json::{self, error::Category};
 
 mod ops;
-use ops::{count_requests, count_schemes, count_urls, filter, search_for};
+use ops::{count_requests, count_schemes, count_urls, filter, list_domains, search_for};
 
 mod har;
 use har::Har;
@@ -52,6 +54,9 @@ enum Commands {
 
     /// Return the contents of the HAR.
     Output,
+
+    /// Check if urls are using DNSSEC
+    DNSSECAudit,
 }
 
 #[derive(Debug, clap::Args)]
@@ -282,6 +287,33 @@ fn run() -> Result<()> {
 
         Commands::Output => {
             println!("{}", json::stringify_pretty(json::parse(&contents)?, 4));
+        }
+
+        Commands::DNSSECAudit => {
+            let mut domains: Vec<String> = list_domains::list_domains(&parsed);
+            domains.sort_by_key(|x| x.chars().rev().collect::<String>());
+
+            let resolver = Resolver::default().unwrap();
+
+            for domain in domains {
+                let resp = resolver.lookup(domain.clone() + ".", RecordType::ANY);
+                let Ok(resp) = resp else {
+                    println!("{}: DNS Lookup Failed", domain);
+                    continue;
+                };
+
+                let mut sig_found = false;
+
+                for record in resp.records() {
+                    sig_found |= record.record_type() == RecordType::RRSIG;
+                }
+
+                if sig_found {
+                    println!("DNSSEC Signature found for {}", domain)
+                } else {
+                    println!("{} Doesn't seem to use DNSSEC", domain)
+                }
+            }
         }
     }
 
