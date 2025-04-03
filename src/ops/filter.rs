@@ -1,5 +1,5 @@
-use chrono::{DateTime, Local};
 use crate::Har;
+use chrono::{DateTime, Local};
 
 pub fn filter_by_time(har: &mut Har, time: DateTime<Local>, after: bool) {
     har.log.entries.retain(|entry| {

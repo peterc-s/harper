@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize, Deserializer, de::IntoDeserializer};
+use serde::{de::IntoDeserializer, Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -197,21 +197,20 @@ pub struct Timing {
     pub comment: Option<String>,
 }
 
-
 fn deserialize_empty_object<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     D: Deserializer<'de>,
     T: Deserialize<'de>,
 {
     let value: Value = Deserialize::deserialize(deserializer)?;
-    
+
     // check for empty object
     if let Value::Object(o) = &value {
         if o.is_empty() {
             return Ok(None);
         }
     }
-    
+
     // convert remaining cases to deserializer and parse
     T::deserialize(value.into_deserializer())
         .map(Some)

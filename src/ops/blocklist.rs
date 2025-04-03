@@ -1,40 +1,70 @@
-use std::{collections::HashSet, fs, path::{Path, PathBuf}};
 use anyhow::{Context, Result};
 use colored::Colorize;
 use reqwest::Client;
+use std::{
+    collections::HashSet,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use crate::har::Har;
 
 use super::list_domains;
 
 const BLOCKLISTS: [(&str, &str); 5] = [
-    ("https://github.com/mullvad/dns-blocklists/raw/refs/heads/main/output/doh/doh_adblock.txt", "mullvad_doh_adblock.txt"),
-    ("https://github.com/mullvad/dns-blocklists/raw/refs/heads/main/output/doh/doh_adult.txt", "mullvad_doh_adult.txt"),
-    ("https://github.com/mullvad/dns-blocklists/raw/refs/heads/main/output/doh/doh_gambling.txt", "mullvad_doh_gambling.txt"),
-    ("https://github.com/mullvad/dns-blocklists/raw/refs/heads/main/output/doh/doh_privacy.txt", "mullvad_doh_privacy.txt"),
-    ("https://github.com/mullvad/dns-blocklists/raw/refs/heads/main/output/doh/doh_social.txt", "mullvad_doh_social.txt"),
+    (
+        "https://github.com/mullvad/dns-blocklists/raw/refs/heads/main/output/doh/doh_adblock.txt",
+        "mullvad_doh_adblock.txt",
+    ),
+    (
+        "https://github.com/mullvad/dns-blocklists/raw/refs/heads/main/output/doh/doh_adult.txt",
+        "mullvad_doh_adult.txt",
+    ),
+    (
+        "https://github.com/mullvad/dns-blocklists/raw/refs/heads/main/output/doh/doh_gambling.txt",
+        "mullvad_doh_gambling.txt",
+    ),
+    (
+        "https://github.com/mullvad/dns-blocklists/raw/refs/heads/main/output/doh/doh_privacy.txt",
+        "mullvad_doh_privacy.txt",
+    ),
+    (
+        "https://github.com/mullvad/dns-blocklists/raw/refs/heads/main/output/doh/doh_social.txt",
+        "mullvad_doh_social.txt",
+    ),
 ];
 
-async fn download_blocklist(url: &str, install_dir: &Path, path: &str, client: &Client) -> Result<()> {
+async fn download_blocklist(
+    url: &str,
+    install_dir: &Path,
+    path: &str,
+    client: &Client,
+) -> Result<()> {
     let response = client.get(url).send().await?;
     let content = response.text().await?;
-    
+
     let mut blocklist_path = PathBuf::from(install_dir);
     blocklist_path.push(path);
-    
+
     fs::write(blocklist_path, content)?;
     Ok(())
 }
 
 pub async fn download_all_blocklists() -> Result<()> {
-
     let client = Client::new();
     let exe_path = std::env::current_exe()?;
-    let install_dir = exe_path.parent()
+    let install_dir = exe_path
+        .parent()
         .context("Couldn't get harper installation directory.")?;
 
     for (url, path) in BLOCKLISTS {
-        println!("{}: {} {} {}", "Downloading".purple(), url.cyan(), "as".dimmed(), path);
+        println!(
+            "{}: {} {} {}",
+            "Downloading".purple(),
+            url.cyan(),
+            "as".dimmed(),
+            path
+        );
         download_blocklist(url, install_dir, path, &client).await?;
     }
 
@@ -45,7 +75,8 @@ pub fn check_blocklists(har: &Har) -> Result<()> {
     let domains = list_domains::list_domains(har);
 
     let exe_path = std::env::current_exe()?;
-    let install_dir = exe_path.parent()
+    let install_dir = exe_path
+        .parent()
         .context("Couldn't get harper installation directory.")?;
 
     for (_, filename) in BLOCKLISTS.iter() {
@@ -83,7 +114,7 @@ pub fn check_blocklists(har: &Har) -> Result<()> {
             }
         }
         println!();
-    }    
+    }
 
     Ok(())
 }

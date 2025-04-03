@@ -1,7 +1,7 @@
+use crate::Har;
 use std::{collections::HashMap, net::IpAddr};
 use tldextract::TldExtractor;
 use url::Url;
-use crate::Har;
 
 #[derive(Debug, Default)]
 pub struct DomainNode {
@@ -87,12 +87,7 @@ fn get_domain_parts(host: &str, tld_extractor: &TldExtractor, merge_tld: bool) -
 
     // add subdomain
     if let Some(subdomain) = &extracted.subdomain {
-        parts.extend(
-            subdomain
-                .split('.')
-                .rev()
-                .map(String::from)
-        );
+        parts.extend(subdomain.split('.').rev().map(String::from));
     } else {
         parts.push(String::new())
     }

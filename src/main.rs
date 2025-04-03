@@ -1,8 +1,9 @@
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use base64::{prelude::BASE64_STANDARD_NO_PAD, Engine};
 use chrono::{DateTime, Local};
-use clap::{Parser, Subcommand, error::ErrorKind, CommandFactory};
+use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand};
 use colored::Colorize;
+use serde_json::{self, error::Category};
 use std::{
     cmp::Reverse,
     collections::HashMap,
@@ -11,10 +12,11 @@ use std::{
     process::ExitCode,
 };
 use tldextract::TldOption;
-use serde_json::{self, error::Category};
 
 mod ops;
-use ops::{blocklist, count_requests, count_schemes, count_urls, dns, filter, list_domains, search_for};
+use ops::{
+    blocklist, count_requests, count_schemes, count_urls, dns, filter, list_domains, search_for,
+};
 
 mod har;
 use har::Har;
@@ -119,82 +121,83 @@ async fn main() -> ExitCode {
 
 #[allow(unreachable_code)]
 fn read_input(file_path: &String) -> Result<String> {
-    fs::read_to_string(file_path)
-        .with_context(|| format!("Failed to read file: {}", file_path))
+    fs::read_to_string(file_path).with_context(|| format!("Failed to read file: {}", file_path))
 }
 
 fn parse_har(input: &str) -> Result<Har> {
     // parse the file
-    serde_json::from_str(input).map_err(|e| {
-        // on error, get 1-based line and column number of error
-        let line = e.line();
-        let column = e.column();
+    serde_json::from_str(input)
+        .map_err(|e| {
+            // on error, get 1-based line and column number of error
+            let line = e.line();
+            let column = e.column();
 
-        // get error string and class
-        let err_str = e.to_string();
-        let error_class = e.classify();
+            // get error string and class
+            let err_str = e.to_string();
+            let error_class = e.classify();
 
-        // get surrounding lines of context
-        let lines: Vec<&str> = input.lines().collect();
-        let line_index = line.saturating_sub(1);
-        let start = line_index.saturating_sub(5);
-        let end = (line_index + 5).min(lines.len());
-        let context_lines = lines.get(start..end).unwrap_or_default();
-        let error_line_in_context = line_index.saturating_sub(start);
+            // get surrounding lines of context
+            let lines: Vec<&str> = input.lines().collect();
+            let line_index = line.saturating_sub(1);
+            let start = line_index.saturating_sub(5);
+            let end = (line_index + 5).min(lines.len());
+            let context_lines = lines.get(start..end).unwrap_or_default();
+            let error_line_in_context = line_index.saturating_sub(start);
 
-
-        let mut context_str = String::new();
-        for (i, line) in context_lines.iter().enumerate() {
-            // add source
-            context_str.push_str(line);
-            context_str.push('\n');
-            
-            // add line pointer
-            if i == error_line_in_context {
-                let pointer = format!(
-                    "{}{}",
-                    " ".repeat(column.saturating_sub(1)),
-                    "^-- Error occurred here".purple().bold()
-                );
-                context_str.push_str(&pointer);
+            let mut context_str = String::new();
+            for (i, line) in context_lines.iter().enumerate() {
+                // add source
+                context_str.push_str(line);
                 context_str.push('\n');
-            }
-        }
 
-        // cleanup trailing newline
-        if context_str.ends_with('\n') {
-            context_str.pop();
-        }
-
-        // create error message based off error class
-        let error_msg = match error_class {
-            Category::Syntax => format!(
-                "{}: {}",
-                "JSON syntax error".red().bold(),
-                err_str.split(" at ").next().unwrap_or(&err_str)
-            ),
-            Category::Eof => "Unexpected end of JSON input".red().bold().to_string(),
-            Category::Data => {
-                if let Some(field) = err_str.strip_prefix("missing field `")
-                    .and_then(|s| s.split('`').next())
-                {
-                    format!("{}: `{}`", "Missing required field".red().bold(), field)
-                } else {
-                    format!("{}: {}", "Data validation error".red().bold(), err_str)
+                // add line pointer
+                if i == error_line_in_context {
+                    let pointer = format!(
+                        "{}{}",
+                        " ".repeat(column.saturating_sub(1)),
+                        "^-- Error occurred here".purple().bold()
+                    );
+                    context_str.push_str(&pointer);
+                    context_str.push('\n');
                 }
             }
-            _ => format!("{}: {}", "JSON parsing error".red().bold(), err_str),
-        };
 
-        anyhow!(
-            "HAR validation failed at line {line}:{column}\n\
+            // cleanup trailing newline
+            if context_str.ends_with('\n') {
+                context_str.pop();
+            }
+
+            // create error message based off error class
+            let error_msg = match error_class {
+                Category::Syntax => format!(
+                    "{}: {}",
+                    "JSON syntax error".red().bold(),
+                    err_str.split(" at ").next().unwrap_or(&err_str)
+                ),
+                Category::Eof => "Unexpected end of JSON input".red().bold().to_string(),
+                Category::Data => {
+                    if let Some(field) = err_str
+                        .strip_prefix("missing field `")
+                        .and_then(|s| s.split('`').next())
+                    {
+                        format!("{}: `{}`", "Missing required field".red().bold(), field)
+                    } else {
+                        format!("{}: {}", "Data validation error".red().bold(), err_str)
+                    }
+                }
+                _ => format!("{}: {}", "JSON parsing error".red().bold(), err_str),
+            };
+
+            anyhow!(
+                "HAR validation failed at line {line}:{column}\n\
              {}\n\
              {}:\n{}\n",
-            error_msg,
-            "Context".yellow().bold(),
-            context_str
-        )
-    }).context("Failed to parse HAR file")
+                error_msg,
+                "Context".yellow().bold(),
+                context_str
+            )
+        })
+        .context("Failed to parse HAR file")
 }
 
 async fn run() -> Result<()> {
@@ -208,15 +211,15 @@ async fn run() -> Result<()> {
                 return Err(Args::command()
                     .error(
                         ErrorKind::MissingRequiredArgument,
-                        "Missing required argument: either provide a file or pipe input."
+                        "Missing required argument: either provide a file or pipe input.",
                     )
                     .exit());
             }
-            
+
             let mut contents = String::new();
             stdin.read_to_string(&mut contents)?;
             contents
-        },
+        }
         file => read_input(&file)?,
     };
 
@@ -307,22 +310,16 @@ async fn run() -> Result<()> {
             println!("{}", json::stringify_pretty(json::parse(&contents)?, 4));
         }
 
-        Commands::DNSSECAudit => {
-            dns::dnssec_audit(&parsed)?
-        }
+        Commands::DNSSECAudit => dns::dnssec_audit(&parsed)?,
 
-        Commands::DNSLookup => {
-            dns::dns_lookup(&parsed)?
-        }
+        Commands::DNSLookup => dns::dns_lookup(&parsed)?,
 
         Commands::GetBlockLists => {
             // todo: make the CLI parsing for this work without the FILE arg
             blocklist::download_all_blocklists().await?
         }
 
-        Commands::BlockList => {
-            blocklist::check_blocklists(&parsed)?
-        }
+        Commands::BlockList => blocklist::check_blocklists(&parsed)?,
     }
 
     Ok(())
