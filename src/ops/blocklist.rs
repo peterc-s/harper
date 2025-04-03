@@ -1,12 +1,15 @@
 use anyhow::{Context, Result};
 use colored::Colorize;
 use directories::ProjectDirs;
+use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Client;
 use std::{
     collections::HashSet,
     fs,
     path::{Path, PathBuf},
+    time::Duration,
 };
+use tokio::io::AsyncWriteExt;
 
 use crate::har::Har;
 
@@ -51,13 +54,52 @@ async fn download_blocklist(
     path: &str,
     client: &Client,
 ) -> Result<()> {
-    let response = client.get(url).send().await?;
-    let content = response.text().await?;
+    // create progress bar
+    let pb = ProgressBar::new(0);
+    pb.set_style(ProgressStyle::default_bar()
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+        .unwrap()
+        .progress_chars("##-"));
+    pb.enable_steady_tick(Duration::from_millis(100));
+    pb.set_message(format!("Downloading {}", path));
 
+    let mut response = client
+        .get(url)
+        .send()
+        .await
+        .with_context(|| format!("Failed to send request to {}", url))?;
+
+    // blocklist file path
     let mut blocklist_path = PathBuf::from(install_dir);
     blocklist_path.push(path);
 
-    fs::write(blocklist_path, content)?;
+    // create blocklist file
+    let mut file = tokio::fs::File::create(&blocklist_path)
+        .await
+        .with_context(|| format!("Failed to create file: {:?}", blocklist_path))?;
+
+    // update progress bar
+    let mut downloaded: u64 = 0;
+    if let Some(total) = response.content_length() {
+        pb.set_length(total);
+    }
+
+    // download in chunks
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .with_context(|| format!("Failed to read chunk from {}", url))?
+    {
+        file.write_all(&chunk)
+            .await
+            .with_context(|| format!("Failed to write chunk to {:?}", blocklist_path))?;
+
+        // update progress bar
+        let new = downloaded + chunk.len() as u64;
+        downloaded = new;
+        pb.set_position(new);
+    }
+
     Ok(())
 }
 
