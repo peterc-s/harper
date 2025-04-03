@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use colored::Colorize;
 use directories::ProjectDirs;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::Client;
 use std::{
     collections::HashSet,
@@ -40,68 +40,11 @@ const BLOCKLISTS: [(&str, &str); 7] = [
         "https://v.firebog.net/hosts/Easyprivacy.txt",
         "firebog_easy_privacy.txt",
     ),
-    // ("https://small.oisd.nl/rpz", "oisd_small.txt"),
     (
         "https://v.firebog.net/hosts/AdguardDNS.txt",
         "adguard_dns.txt",
     ),
-    // ("https://nsfw.oisd.nl/rpz", "oist_nsfw.txt"),
 ];
-
-async fn download_blocklist(
-    url: &str,
-    install_dir: &Path,
-    path: &str,
-    client: &Client,
-) -> Result<()> {
-    // create progress bar
-    let pb = ProgressBar::new(0);
-    pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
-        .unwrap()
-        .progress_chars("##-"));
-    pb.enable_steady_tick(Duration::from_millis(100));
-    pb.set_message(format!("Downloading {}", path));
-
-    let mut response = client
-        .get(url)
-        .send()
-        .await
-        .with_context(|| format!("Failed to send request to {}", url))?;
-
-    // blocklist file path
-    let mut blocklist_path = PathBuf::from(install_dir);
-    blocklist_path.push(path);
-
-    // create blocklist file
-    let mut file = tokio::fs::File::create(&blocklist_path)
-        .await
-        .with_context(|| format!("Failed to create file: {:?}", blocklist_path))?;
-
-    // update progress bar
-    let mut downloaded: u64 = 0;
-    if let Some(total) = response.content_length() {
-        pb.set_length(total);
-    }
-
-    // download in chunks
-    while let Some(chunk) = response
-        .chunk()
-        .await
-        .with_context(|| format!("Failed to read chunk from {}", url))?
-    {
-        file.write_all(&chunk)
-            .await
-            .with_context(|| format!("Failed to write chunk to {:?}", blocklist_path))?;
-
-        // update progress bar
-        let new = downloaded + chunk.len() as u64;
-        downloaded = new;
-        pb.set_position(new);
-    }
-
-    Ok(())
-}
 
 fn get_blocklists_dir() -> Result<PathBuf> {
     let proj_dirs = ProjectDirs::from("com", "peterc-s", "harper")
@@ -117,19 +60,85 @@ fn get_blocklists_dir() -> Result<PathBuf> {
     Ok(blocklists_dir)
 }
 
+async fn download_blocklist(
+    url: &str,
+    install_dir: &Path,
+    path: &str,
+    client: &Client,
+    pb: &ProgressBar,
+) -> Result<()> {
+    pb.set_message(path.to_string());
+    let mut response = client
+        .get(url)
+        .send()
+        .await
+        .with_context(|| format!("Failed to send request to {}", url))?;
+
+    let mut blocklist_path = PathBuf::from(install_dir);
+    blocklist_path.push(path);
+
+    let mut file = tokio::fs::File::create(&blocklist_path)
+        .await
+        .with_context(|| format!("Failed to create file: {:?}", blocklist_path))?;
+
+    // initial progressbar length
+    let mut downloaded: u64 = 0;
+    if let Some(total) = response.content_length() {
+        pb.set_length(total);
+    }
+
+    // stream download
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .with_context(|| format!("Failed to read chunk from {}", url))?
+    {
+        file.write_all(&chunk)
+            .await
+            .with_context(|| format!("Failed to write chunk to {:?}", blocklist_path))?;
+
+        // update progress bar
+        let new = downloaded + chunk.len() as u64;
+        downloaded = new;
+        pb.set_position(new);
+    }
+
+    pb.finish_with_message("Done!");
+    Ok(())
+}
+
 pub async fn download_all_blocklists() -> Result<()> {
     let client = Client::new();
     let blocklists_dir = get_blocklists_dir()?;
+    let multi = MultiProgress::new();
+
+    // parallel download handles
+    let mut handles = vec![];
+    let style = ProgressStyle::default_bar()
+        .template("{spinner:.green} [{elapsed_precise}] {msg:25!} [{bar:20.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+        .unwrap()
+        .progress_chars("##-");
 
     for (url, path) in BLOCKLISTS {
-        println!(
-            "{}: {} {} {}",
-            "Downloading".purple(),
-            url.cyan(),
-            "as".dimmed(),
-            path
-        );
-        download_blocklist(url, &blocklists_dir, path, &client).await?;
+        let pb = multi.add(ProgressBar::new(0));
+        pb.set_style(style.clone());
+        pb.set_message(path.to_string()); // Set blocklist name here
+        pb.enable_steady_tick(Duration::from_millis(100));
+
+        let client = client.clone();
+        let blocklists_dir = blocklists_dir.clone();
+        let url = url.to_string();
+        let path = path.to_string();
+
+        handles.push(tokio::spawn(async move {
+            download_blocklist(&url, &blocklists_dir, &path, &client, &pb)
+                .await
+                .context(format!("Failed to download {}", path))
+        }));
+    }
+
+    for handle in handles {
+        handle.await??;
     }
 
     Ok(())
