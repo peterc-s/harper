@@ -34,11 +34,12 @@ struct Args {
     command: Commands,
 
     /// Input HAR file (use '-' for stdin).
-    #[arg(default_value = "-")]
+    #[arg(default_value = "-", required_unless_present_any = ["get-block-lists"])]
     file: String,
 }
 
 #[derive(Subcommand, Debug)]
+#[command(arg_required_else_help = true)]
 enum Commands {
     /// Count number of times a request is sent to a URL.
     CountUrls(CountUrlArgs),
@@ -64,7 +65,7 @@ enum Commands {
     /// Lookup common DNS record types of URLs contained in the HAR.
     DNSLookup,
 
-    /// Downloads common blocklists.
+    /// Downloads common blocklists, use '-' for FILE.
     GetBlockLists,
 
     /// Checks for URLs in common blocklists.
@@ -203,6 +204,10 @@ fn parse_har(input: &str) -> Result<Har> {
 async fn run() -> Result<()> {
     let args = Args::parse();
 
+    if let Commands::GetBlockLists = &args.command {
+        return blocklist::download_all_blocklists().await;
+    }
+
     let contents = match args.file {
         stdin if stdin == "-" => {
             let mut stdin = io::stdin();
@@ -314,10 +319,7 @@ async fn run() -> Result<()> {
 
         Commands::DNSLookup => dns::dns_lookup(&parsed)?,
 
-        Commands::GetBlockLists => {
-            // todo: make the CLI parsing for this work without the FILE arg
-            blocklist::download_all_blocklists().await?
-        }
+        Commands::GetBlockLists => unreachable!(),
 
         Commands::BlockList => blocklist::check_blocklists(&parsed)?,
     }

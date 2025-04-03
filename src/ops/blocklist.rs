@@ -97,7 +97,7 @@ pub fn check_blocklists(har: &Har) -> Result<()> {
             format!(
                 "Failed to read blocklist: {:?}\nHave you run {}?\n{}",
                 path,
-                "harper [FILE] get-block-lists".green(),
+                "harper - get-block-lists".green(),
                 "Caused by".red().bold()
             )
         })?;
