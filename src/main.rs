@@ -3,7 +3,6 @@ use base64::{prelude::BASE64_STANDARD_NO_PAD, Engine};
 use chrono::{DateTime, Local};
 use clap::{Parser, Subcommand, error::ErrorKind, CommandFactory};
 use colored::Colorize;
-use hickory_resolver::{proto::rr::RecordType, Resolver};
 use std::{
     cmp::Reverse,
     collections::HashMap,
@@ -15,7 +14,7 @@ use tldextract::TldOption;
 use serde_json::{self, error::Category};
 
 mod ops;
-use ops::{count_requests, count_schemes, count_urls, filter, list_domains, search_for};
+use ops::{count_requests, count_schemes, count_urls, dns, filter, search_for};
 
 mod har;
 use har::Har;
@@ -54,8 +53,11 @@ enum Commands {
     /// Return the contents of the HAR.
     Output,
 
-    /// Check if urls contained in the HAR are using DNSSEC.
+    /// Check if URLs contained in the HAR are using DNSSEC.
     DNSSECAudit,
+
+    /// Lookup common DNS record types of URLs contained in the HAR.
+    DNSLookup,
 }
 
 #[derive(Debug, clap::Args)]
@@ -289,33 +291,11 @@ fn run() -> Result<()> {
         }
 
         Commands::DNSSECAudit => {
-            let mut domains: Vec<String> = list_domains::list_domains(&parsed);
-            domains.sort_by_key(|x| x.chars().rev().collect::<String>());
+            dns::dnssec_audit(&parsed)?
+        }
 
-            let (config, opts) = hickory_resolver::system_conf::read_system_conf()
-                .context("Failed to read system DNS config.")?;
-            let resolver = Resolver::new(config, opts)
-                .context("Failed to create resolver.")?;
-
-            for domain in domains {
-                let resp = resolver.lookup(domain.clone() + ".", RecordType::ANY);
-                let Ok(resp) = resp else {
-                    println!("{}: {}", domain.bold(), "DNS lookup failed".red());
-                    continue;
-                };
-
-                let mut sig_found = false;
-
-                for record in resp.records() {
-                    sig_found |= record.record_type() == RecordType::RRSIG;
-                }
-
-                if sig_found {
-                    println!("{}: {}", domain.bold(), "Signature found.".green())
-                } else {
-                    println!("{}: {}", domain.bold(), "No signature found.".yellow())
-                }
-            }
+        Commands::DNSLookup => {
+            dns::dns_lookup(&parsed)?
         }
     }
 

@@ -93,6 +93,8 @@ fn get_domain_parts(host: &str, tld_extractor: &TldExtractor, merge_tld: bool) -
                 .rev()
                 .map(String::from)
         );
+    } else {
+        parts.push(String::new())
     }
 
     // if none of the parts exist
