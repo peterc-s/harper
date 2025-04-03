@@ -65,7 +65,7 @@ fn get_dns_records<'a>(
     record_types
         .into_iter()
         .filter_map(move |rt| resolver.lookup(&fqdn, rt).ok())
-        .flat_map(|response| response.records().iter().cloned().collect::<Vec<_>>())
+        .flat_map(|response| response.records().to_vec())
 }
 
 pub fn dns_lookup(har: &Har) -> Result<()> {
