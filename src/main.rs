@@ -300,7 +300,7 @@ fn run() -> Result<()> {
             for domain in domains {
                 let resp = resolver.lookup(domain.clone() + ".", RecordType::ANY);
                 let Ok(resp) = resp else {
-                    println!("{}: DNS Lookup Failed", domain);
+                    println!("{}: {}", domain.bold(), "DNS lookup failed".red());
                     continue;
                 };
 
@@ -311,9 +311,9 @@ fn run() -> Result<()> {
                 }
 
                 if sig_found {
-                    println!("{}: {}", domain, "Signature found!".green())
+                    println!("{}: {}", domain.bold(), "Signature found.".green())
                 } else {
-                    println!("{}: {}", domain, "No signature found.".red())
+                    println!("{}: {}", domain.bold(), "No signature found.".yellow())
                 }
             }
         }
