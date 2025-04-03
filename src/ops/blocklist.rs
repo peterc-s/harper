@@ -34,20 +34,14 @@ const BLOCKLISTS: [(&str, &str); 9] = [
     ),
     (
         "https://v.firebog.net/hosts/Easyprivacy.txt",
-        "firebog_easy_privacy.txt"
+        "firebog_easy_privacy.txt",
     ),
-    (
-        "https://small.oisd.nl/rpz",
-        "oisd_small.txt"
-    ),
+    ("https://small.oisd.nl/rpz", "oisd_small.txt"),
     (
         "https://v.firebog.net/hosts/AdguardDNS.txt",
-        "adguard_dns.txt"
+        "adguard_dns.txt",
     ),
-    (
-        "https://nsfw.oisd.nl/rpz",
-        "oist_nsfw.txt"
-    )
+    ("https://nsfw.oisd.nl/rpz", "oist_nsfw.txt"),
 ];
 
 async fn download_blocklist(
@@ -99,8 +93,14 @@ pub fn check_blocklists(har: &Har) -> Result<()> {
         let mut blocklist_domains = HashSet::new();
 
         let path = install_dir.join(filename);
-        let content = fs::read_to_string(&path)
-            .with_context(|| format!("Failed to read blocklist: {:?}", path))?;
+        let content = fs::read_to_string(&path).with_context(|| {
+            format!(
+                "Failed to read blocklist: {:?}\nHave you run {}?\n{}",
+                path,
+                "harper [FILE] get-block-lists".green(),
+                "Caused by".red().bold()
+            )
+        })?;
 
         for line in content.lines() {
             let line = line.trim();
