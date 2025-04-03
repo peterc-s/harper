@@ -13,7 +13,7 @@ env_logger = "0.11.7"
 json = "0.12.4"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
-hickory-resolver = {  version = "0.24.4" , features = ["dnssec-ring"] }
+hickory-resolver = {  version = "0.25.1" , features = ["dnssec-ring", "system-config", "tokio"] }
 tldextract = "0.6.0"
 url = "2.5.4"
 tokio = { version = "1.44.1", features = ["fs", "macros"] }

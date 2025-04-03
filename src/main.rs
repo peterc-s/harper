@@ -207,10 +207,10 @@ fn parse_har(input: &str) -> Result<Har> {
 async fn run() -> Result<()> {
     let args = Args::parse();
 
-    if let Commands::GetBlockLists = &args.command {
-        return blocklist::download_all_blocklists().await;
-    } else if let Commands::RemoveBlockLists = &args.command {
-        return blocklist::remove_blocklists();
+    match &args.command {
+        Commands::GetBlockLists => return blocklist::download_all_blocklists().await,
+        Commands::RemoveBlockLists => return blocklist::remove_blocklists(),
+        _ => {}
     }
 
     let contents = match args.file {
@@ -320,9 +320,9 @@ async fn run() -> Result<()> {
             println!("{}", json::stringify_pretty(json::parse(&contents)?, 4));
         }
 
-        Commands::DNSSECAudit => dns::dnssec_audit(&parsed)?,
+        Commands::DNSSECAudit => dns::dnssec_audit(&parsed).await?,
 
-        Commands::DNSLookup => dns::dns_lookup(&parsed)?,
+        Commands::DNSLookup => dns::dns_lookup(&parsed).await?,
 
         Commands::GetBlockLists => unreachable!(),
 
