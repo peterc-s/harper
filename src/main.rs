@@ -14,7 +14,7 @@ use tldextract::TldOption;
 use serde_json::{self, error::Category};
 
 mod ops;
-use ops::{count_requests, count_schemes, count_urls, dns, filter, search_for};
+use ops::{count_requests, count_schemes, count_urls, dns, filter, list_domains, search_for};
 
 mod har;
 use har::Har;
@@ -40,6 +40,9 @@ struct Args {
 enum Commands {
     /// Count number of times a request is sent to a URL.
     CountUrls(CountUrlArgs),
+
+    /// Lists domains in the HAR.
+    ListDomains,
 
     /// Count number of each scheme in the HAR.
     CountSchemes,
@@ -244,6 +247,13 @@ fn run() -> Result<()> {
                 SortBy::Frequency => {
                     count_urls::print_tree(&domain_tree, &mut |(_, node)| Reverse(node.count));
                 }
+            }
+        }
+
+        Commands::ListDomains => {
+            let domains = list_domains::list_domains(&parsed);
+            for domain in domains {
+                println!("{}", domain);
             }
         }
 
