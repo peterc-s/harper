@@ -6,6 +6,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+use directories::ProjectDirs;
 
 use crate::har::Har;
 
@@ -60,12 +61,24 @@ async fn download_blocklist(
     Ok(())
 }
 
+fn get_blocklists_dir() -> Result<PathBuf> {
+    let proj_dirs = ProjectDirs::from("com", "peterc-s", "harper")
+        .context("Failed to determine platform-specific project directories.")?;
+
+    let data_dir = proj_dirs.data_dir();
+    let blocklists_dir = data_dir.join("blocklists");
+
+    if !blocklists_dir.exists() {
+        fs::create_dir_all(&blocklists_dir)
+            .context("Failed to create blocklists directory")?;
+    }
+
+    Ok(blocklists_dir)
+}
+
 pub async fn download_all_blocklists() -> Result<()> {
     let client = Client::new();
-    let exe_path = std::env::current_exe()?;
-    let install_dir = exe_path
-        .parent()
-        .context("Couldn't get harper installation directory.")?;
+    let blocklists_dir = get_blocklists_dir()?;
 
     for (url, path) in BLOCKLISTS {
         println!(
@@ -75,7 +88,7 @@ pub async fn download_all_blocklists() -> Result<()> {
             "as".dimmed(),
             path
         );
-        download_blocklist(url, install_dir, path, &client).await?;
+        download_blocklist(url, &blocklists_dir, path, &client).await?;
     }
 
     Ok(())
@@ -83,16 +96,12 @@ pub async fn download_all_blocklists() -> Result<()> {
 
 pub fn check_blocklists(har: &Har) -> Result<()> {
     let domains = list_domains::list_domains(har);
-
-    let exe_path = std::env::current_exe()?;
-    let install_dir = exe_path
-        .parent()
-        .context("Couldn't get harper installation directory.")?;
+    let blocklists_dir = get_blocklists_dir()?;
 
     for (_, filename) in BLOCKLISTS.iter() {
         let mut blocklist_domains = HashSet::new();
 
-        let path = install_dir.join(filename);
+        let path = blocklists_dir.join(filename);
         let content = fs::read_to_string(&path).with_context(|| {
             format!(
                 "Failed to read blocklist: {:?}\nHave you run {}?\n{}",

@@ -18,3 +18,4 @@ tldextract = "0.6.0"
 url = "2.5.4"
 tokio = { version = "1.44.1", features = ["macros"] }
 reqwest = "0.12.15"
+directories = "6.0.0"
