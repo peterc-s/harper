@@ -1,12 +1,12 @@
 use anyhow::{Context, Result};
 use colored::Colorize;
+use directories::ProjectDirs;
 use reqwest::Client;
 use std::{
     collections::HashSet,
     fs,
     path::{Path, PathBuf},
 };
-use directories::ProjectDirs;
 
 use crate::har::Har;
 
@@ -69,8 +69,7 @@ fn get_blocklists_dir() -> Result<PathBuf> {
     let blocklists_dir = data_dir.join("blocklists");
 
     if !blocklists_dir.exists() {
-        fs::create_dir_all(&blocklists_dir)
-            .context("Failed to create blocklists directory")?;
+        fs::create_dir_all(&blocklists_dir).context("Failed to create blocklists directory")?;
     }
 
     Ok(blocklists_dir)
