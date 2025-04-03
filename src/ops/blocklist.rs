@@ -11,7 +11,7 @@ use crate::har::Har;
 
 use super::list_domains;
 
-const BLOCKLISTS: [(&str, &str); 9] = [
+const BLOCKLISTS: [(&str, &str); 7] = [
     (
         "https://github.com/mullvad/dns-blocklists/raw/refs/heads/main/output/doh/doh_adblock.txt",
         "mullvad_doh_adblock.txt",
@@ -36,12 +36,12 @@ const BLOCKLISTS: [(&str, &str); 9] = [
         "https://v.firebog.net/hosts/Easyprivacy.txt",
         "firebog_easy_privacy.txt",
     ),
-    ("https://small.oisd.nl/rpz", "oisd_small.txt"),
+    // ("https://small.oisd.nl/rpz", "oisd_small.txt"),
     (
         "https://v.firebog.net/hosts/AdguardDNS.txt",
         "adguard_dns.txt",
     ),
-    ("https://nsfw.oisd.nl/rpz", "oist_nsfw.txt"),
+    // ("https://nsfw.oisd.nl/rpz", "oist_nsfw.txt"),
 ];
 
 async fn download_blocklist(
