@@ -14,7 +14,7 @@ use tldextract::TldOption;
 use serde_json::{self, error::Category};
 
 mod ops;
-use ops::{count_requests, count_schemes, count_urls, dns, filter, list_domains, search_for};
+use ops::{blocklist, count_requests, count_schemes, count_urls, dns, filter, list_domains, search_for};
 
 mod har;
 use har::Har;
@@ -61,6 +61,12 @@ enum Commands {
 
     /// Lookup common DNS record types of URLs contained in the HAR.
     DNSLookup,
+
+    /// Downloads common blocklists.
+    GetBlockLists,
+
+    /// Checks for URLs in common blocklists.
+    BlockList,
 }
 
 #[derive(Debug, clap::Args)]
@@ -100,10 +106,11 @@ struct SearchForArgs {
     string: String,
 }
 
-fn main() -> ExitCode {
+#[tokio::main]
+async fn main() -> ExitCode {
     env_logger::init();
 
-    if let Err(e) = run() {
+    if let Err(e) = run().await {
         eprintln!("{}: {:#}", "Error".red().bold(), e);
         return ExitCode::FAILURE;
     }
@@ -190,7 +197,7 @@ fn parse_har(input: &str) -> Result<Har> {
     }).context("Failed to parse HAR file")
 }
 
-fn run() -> Result<()> {
+async fn run() -> Result<()> {
     let args = Args::parse();
 
     let contents = match args.file {
@@ -306,6 +313,15 @@ fn run() -> Result<()> {
 
         Commands::DNSLookup => {
             dns::dns_lookup(&parsed)?
+        }
+
+        Commands::GetBlockLists => {
+            // todo: make the CLI parsing for this work without the FILE arg
+            blocklist::download_all_blocklists().await?
+        }
+
+        Commands::BlockList => {
+            blocklist::check_blocklists(&parsed)?
         }
     }
 
