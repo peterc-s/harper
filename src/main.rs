@@ -68,6 +68,9 @@ enum Commands {
     /// Downloads common blocklists, use '-' for FILE.
     GetBlockLists,
 
+    /// Deletes block lists.
+    RemoveBlockLists,
+
     /// Checks for URLs in common blocklists.
     BlockList,
 }
@@ -206,6 +209,8 @@ async fn run() -> Result<()> {
 
     if let Commands::GetBlockLists = &args.command {
         return blocklist::download_all_blocklists().await;
+    } else if let Commands::RemoveBlockLists = &args.command {
+        return blocklist::remove_blocklists();
     }
 
     let contents = match args.file {
@@ -320,6 +325,8 @@ async fn run() -> Result<()> {
         Commands::DNSLookup => dns::dns_lookup(&parsed)?,
 
         Commands::GetBlockLists => unreachable!(),
+
+        Commands::RemoveBlockLists => unreachable!(),
 
         Commands::BlockList => blocklist::check_blocklists(&parsed)?,
     }

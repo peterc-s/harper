@@ -144,6 +144,12 @@ pub async fn download_all_blocklists() -> Result<()> {
     Ok(())
 }
 
+pub fn remove_blocklists() -> Result<()> {
+    let blocklists_dir = get_blocklists_dir()?;
+    fs::remove_dir_all(blocklists_dir)?;
+    Ok(())
+}
+
 pub fn check_blocklists(har: &Har) -> Result<()> {
     let domains = list_domains::list_domains(har);
     let blocklists_dir = get_blocklists_dir()?;
