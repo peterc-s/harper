@@ -61,9 +61,7 @@ pub struct Entry {
     pub request: Request,
     pub response: Response,
     pub cache: Cache,
-    // this is a leniancy given, HAR 1.2 files
-    // should have a Timing, but for some reason,
-    // many Firefox generated don't.
+    // leniancy given, shouldn't be optional.
     #[serde(deserialize_with = "deserialize_empty_object")]
     pub timings: Option<Timing>,
     pub server_ip_address: Option<String>,
@@ -81,7 +79,8 @@ pub struct Request {
     pub headers: Vec<Header>,
     pub query_string: Vec<QueryString>,
     pub post_data: Option<PostData>,
-    pub headers_size: i64,
+    // leniancy given, shouldn't be optional.
+    pub headers_size: Option<i64>,
     pub body_size: i64,
     pub comment: Option<String>,
 }
@@ -96,12 +95,11 @@ pub struct Response {
     pub headers: Vec<Header>,
     #[serde(rename = "redirectURL")]
     pub redirect_url: String,
-    // this is a leniancy given, HAR 1.2 files
-    // should have content, but for some reason,
-    // many Firefox generated don't.
+    // leniency given, shouldn't be optional.
     #[serde(deserialize_with = "deserialize_empty_object")]
     pub content: Option<Content>,
-    pub headers_size: i64,
+    // leniency given, shouldn't be optional.
+    pub headers_size: Option<i64>,
     pub body_size: i64,
     pub comment: Option<String>,
 }
@@ -139,8 +137,7 @@ pub struct QueryString {
 #[serde(rename_all = "camelCase")]
 pub struct PostData {
     pub mime_type: String,
-    // this should not be optional,
-    // a leniency given because of Chrome.
+    // leniency given, shouldn't be optional.
     pub params: Option<Vec<Param>>,
     pub text: String,
     pub comment: Option<String>,
@@ -159,10 +156,10 @@ pub struct Param {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Content {
-    pub size: i64,
+    // leniency given, shouldn't be optional.
+    pub size: Option<i64>,
     pub compression: Option<i64>,
-    // mime type should not be optional, this
-    // is a leniancy given because of Firefox.
+    // leniency given, shouldn't be optional.
     pub mime_type: Option<String>,
     pub text: Option<String>,
     pub encoding: Option<String>,
