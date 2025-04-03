@@ -63,7 +63,7 @@ pub struct Entry {
     pub cache: Cache,
     // this is a leniancy given, HAR 1.2 files
     // should have a Timing, but for some reason,
-    // many don't.
+    // many Firefox generated don't.
     #[serde(deserialize_with = "deserialize_empty_object")]
     pub timings: Option<Timing>,
     pub server_ip_address: Option<String>,
@@ -98,7 +98,7 @@ pub struct Response {
     pub redirect_url: String,
     // this is a leniancy given, HAR 1.2 files
     // should have content, but for some reason,
-    // many don't.
+    // many Firefox generated don't.
     #[serde(deserialize_with = "deserialize_empty_object")]
     pub content: Option<Content>,
     pub headers_size: i64,
@@ -139,7 +139,9 @@ pub struct QueryString {
 #[serde(rename_all = "camelCase")]
 pub struct PostData {
     pub mime_type: String,
-    pub params: Vec<Param>,
+    // this should not be optional,
+    // a leniency given because of Chrome.
+    pub params: Option<Vec<Param>>,
     pub text: String,
     pub comment: Option<String>,
 }
@@ -160,7 +162,7 @@ pub struct Content {
     pub size: i64,
     pub compression: Option<i64>,
     // mime type should not be optional, this
-    // is a leniancy given.
+    // is a leniancy given because of Firefox.
     pub mime_type: Option<String>,
     pub text: Option<String>,
     pub encoding: Option<String>,
