@@ -3,8 +3,7 @@ use base64::{prelude::BASE64_STANDARD_NO_PAD, Engine};
 use chrono::{DateTime, Local};
 use clap::{Parser, Subcommand, error::ErrorKind, CommandFactory};
 use colored::Colorize;
-use hickory_resolver::proto::rr::RecordType;
-use hickory_resolver::Resolver;
+use hickory_resolver::{proto::rr::RecordType, Resolver};
 use std::{
     cmp::Reverse,
     collections::HashMap,
@@ -55,7 +54,7 @@ enum Commands {
     /// Return the contents of the HAR.
     Output,
 
-    /// Check if urls are using DNSSEC
+    /// Check if urls contained in the HAR are using DNSSEC.
     DNSSECAudit,
 }
 
@@ -293,7 +292,10 @@ fn run() -> Result<()> {
             let mut domains: Vec<String> = list_domains::list_domains(&parsed);
             domains.sort_by_key(|x| x.chars().rev().collect::<String>());
 
-            let resolver = Resolver::default().unwrap();
+            let (config, opts) = hickory_resolver::system_conf::read_system_conf()
+                .context("Failed to read system DNS config.")?;
+            let resolver = Resolver::new(config, opts)
+                .context("Failed to create resolver.")?;
 
             for domain in domains {
                 let resp = resolver.lookup(domain.clone() + ".", RecordType::ANY);
@@ -309,9 +311,9 @@ fn run() -> Result<()> {
                 }
 
                 if sig_found {
-                    println!("DNSSEC Signature found for {}", domain)
+                    println!("{}: {}", domain, "Signature found!".green())
                 } else {
-                    println!("{} Doesn't seem to use DNSSEC", domain)
+                    println!("{}: {}", domain, "No signature found.".red())
                 }
             }
         }
