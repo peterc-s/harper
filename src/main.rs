@@ -34,7 +34,7 @@ struct Args {
     command: Commands,
 
     /// Input HAR file (use '-' for stdin).
-    #[arg(default_value = "-", required_unless_present_any = ["get-block-lists"])]
+    #[arg(default_value = "-")]
     file: String,
 }
 

@@ -59,11 +59,8 @@ async fn get_dns_records(resolver: &TokioResolver, domain: &str) -> Vec<Record> 
     let mut records = Vec::new();
 
     for rt in record_types {
-        match resolver.lookup(&fqdn, rt).await {
-            Ok(response) => {
-                records.extend(response.records().iter().cloned());
-            },
-            Err(_) => {},
+        if let Ok(response) = resolver.lookup(&fqdn, rt).await {
+            records.extend(response.records().iter().cloned());
         }
     }
 
@@ -88,9 +85,7 @@ pub async fn dns_lookup(har: &Har) -> Result<()> {
                 format!("{}", record.record_type()).purple().bold(),
                 record.name().to_string().cyan(),
                 record.ttl().to_string().yellow(),
-                record
-                    .data()
-                    .to_string()
+                record.data()
             );
         }
 
