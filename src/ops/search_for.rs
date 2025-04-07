@@ -58,7 +58,13 @@ fn check_serialised_field<T: Serialize>(
     in_fields: &mut Vec<String>,
     prefix: &str,
 ) {
-    if let Ok(json_str) = serde_json::to_string(value) {
+    fn check_field(
+        json_str: &str,
+        field_name: &str,
+        search_str: &str,
+        in_fields: &mut Vec<String>,
+        prefix: &str,
+    ) {
         if json_str.contains(search_str) {
             let field = if prefix.is_empty() {
                 field_name.to_string()
@@ -68,8 +74,11 @@ fn check_serialised_field<T: Serialize>(
             in_fields.push(field);
         }
     }
-}
 
+    if let Ok(json_str) = serde_json::to_string(value) {
+        check_field(&json_str, field_name, search_str, in_fields, prefix);
+    }
+}
 pub fn search_for<'a>(har: &'a Har, search_str: &'a str) -> Vec<SearchResult<'a>> {
     har.log
         .entries
