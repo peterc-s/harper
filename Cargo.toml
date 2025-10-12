@@ -19,4 +19,4 @@ url = { version = "2.5.4", default-features = false }
 tokio = { version = "1.44.2", features = ["fs"] }
 reqwest = { version = "0.12.15", features = ["default-tls"], default-features = false }
 directories = "6.0.0"
-indicatif = { version = "0.17.11", default-features = false }
+indicatif = { version = "0.18.0", default-features = false }

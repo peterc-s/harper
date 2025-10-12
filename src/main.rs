@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use base64::{prelude::BASE64_STANDARD_NO_PAD, Engine};
 use chrono::{DateTime, Local};
 use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand};
@@ -217,13 +217,15 @@ async fn run() -> Result<()> {
         stdin if stdin == "-" => {
             let mut stdin = io::stdin();
             if stdin.is_terminal() {
-                #[allow(unreachable_code)]
-                return Err(Args::command()
-                    .error(
-                        ErrorKind::MissingRequiredArgument,
-                        "Missing required argument: either provide a file or pipe input.",
-                    )
-                    .exit());
+                let clap_err = Args::command().error(
+                    ErrorKind::MissingRequiredArgument,
+                    "Missing required argument: either provide a file or pipe input.",
+                );
+
+                let clap_err_str = format!("{}", clap_err);
+                let clap_err_str = clap_err_str.trim_start_matches("error: ");
+
+                return Err(anyhow!(format!("{}", clap_err_str)));
             }
 
             let mut contents = String::new();
