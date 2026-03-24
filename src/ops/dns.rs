@@ -1,8 +1,8 @@
 use anyhow::Result;
 use colored::Colorize;
 use hickory_resolver::{
-    proto::rr::{Record, RecordType},
     Resolver, TokioResolver,
+    proto::rr::{Record, RecordType},
 };
 
 use crate::har::Har;

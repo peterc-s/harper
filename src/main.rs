@@ -1,7 +1,7 @@
-use anyhow::{anyhow, Context, Result};
-use base64::{prelude::BASE64_STANDARD_NO_PAD, Engine};
+use anyhow::{Context, Result, anyhow};
+use base64::{Engine, prelude::BASE64_STANDARD_NO_PAD};
 use chrono::{DateTime, Local};
-use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand, error::ErrorKind};
 use colored::Colorize;
 use serde_json::{self, error::Category};
 use std::{

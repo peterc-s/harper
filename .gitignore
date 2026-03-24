@@ -2,3 +2,4 @@
 *.har
 .idea
 .DS_Store
+.direnv
