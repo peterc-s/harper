@@ -6,7 +6,7 @@ use url::Url;
 #[derive(Debug, Default)]
 pub struct DomainNode {
     pub count: usize,
-    pub children: HashMap<String, DomainNode>,
+    pub children: HashMap<String, Self>,
 }
 
 pub fn build_domain_tree(
@@ -30,7 +30,7 @@ fn process_url(
 ) {
     // parse URL
     let Ok(parsed_url) = Url::parse(url_str) else {
-        eprintln!("Failed to parse URL: {}", url_str);
+        eprintln!("Failed to parse URL: {url_str}");
         return;
     };
 
@@ -41,7 +41,7 @@ fn process_url(
     } else {
         // get host from parsed url
         let Some(host) = parsed_url.host_str() else {
-            eprintln!("URL has no host: {}", parsed_url);
+            eprintln!("URL has no host: {parsed_url}");
             return;
         };
 
@@ -65,7 +65,7 @@ fn get_domain_parts(host: &str, tld_extractor: &TldExtractor, merge_tld: bool) -
 
     // handle invalid results
     let Ok(extracted) = tld_extractor.extract(host) else {
-        eprintln!("Failed to extract TLD from: {}", host);
+        eprintln!("Failed to extract TLD from: {host}");
         return vec![format!("invalid:{}", host)];
     };
 
@@ -73,7 +73,7 @@ fn get_domain_parts(host: &str, tld_extractor: &TldExtractor, merge_tld: bool) -
 
     // add domain and suffix
     match (merge_tld, &extracted.domain, &extracted.suffix) {
-        (true, Some(domain), Some(suffix)) => parts.push(format!("{}.{}", domain, suffix)),
+        (true, Some(domain), Some(suffix)) => parts.push(format!("{domain}.{suffix}")),
         (true, None, Some(suffix)) => parts.push(suffix.clone()),
         (true, Some(domain), None) => parts.push(domain.clone()),
         (false, _, Some(suffix)) => {
@@ -89,7 +89,7 @@ fn get_domain_parts(host: &str, tld_extractor: &TldExtractor, merge_tld: bool) -
     if let Some(subdomain) = &extracted.subdomain {
         parts.extend(subdomain.split('.').rev().map(String::from));
     } else {
-        parts.push(String::new())
+        parts.push(String::new());
     }
 
     // if none of the parts exist

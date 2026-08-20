@@ -1,4 +1,4 @@
-use serde::{Deserialize, Deserializer, Serialize, de::IntoDeserializer};
+use serde::{de::IntoDeserializer as _, Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -34,6 +34,7 @@ pub struct Browser {
     pub comment: Option<String>,
 }
 
+#[expect(clippy::struct_field_names)]
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Page {
@@ -214,5 +215,5 @@ where
     // convert remaining cases to deserializer and parse
     T::deserialize(value.into_deserializer())
         .map(Some)
-        .map_err(|e| serde::de::Error::custom(format!("Failed to deserialize: {}", e)))
+        .map_err(|e| serde::de::Error::custom(format!("Failed to deserialize: {e}")))
 }

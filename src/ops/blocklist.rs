@@ -1,5 +1,5 @@
-use anyhow::{Context, Result};
-use colored::Colorize;
+use anyhow::{Context as _, Result};
+use colored::Colorize as _;
 use directories::ProjectDirs;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::Client;
@@ -9,7 +9,7 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
-use tokio::io::AsyncWriteExt;
+use tokio::io::AsyncWriteExt as _;
 
 use crate::har::Har;
 
@@ -72,14 +72,14 @@ async fn download_blocklist(
         .get(url)
         .send()
         .await
-        .with_context(|| format!("Failed to send request to {}", url))?;
+        .with_context(|| format!("Failed to send request to {url}"))?;
 
     let mut blocklist_path = PathBuf::from(install_dir);
     blocklist_path.push(path);
 
     let mut file = tokio::fs::File::create(&blocklist_path)
         .await
-        .with_context(|| format!("Failed to create file: {:?}", blocklist_path))?;
+        .with_context(|| format!("Failed to create file: {}", blocklist_path.display()))?;
 
     // initial progressbar length
     let mut downloaded: u64 = 0;
@@ -91,11 +91,11 @@ async fn download_blocklist(
     while let Some(chunk) = response
         .chunk()
         .await
-        .with_context(|| format!("Failed to read chunk from {}", url))?
+        .with_context(|| format!("Failed to read chunk from {url}"))?
     {
         file.write_all(&chunk)
             .await
-            .with_context(|| format!("Failed to write chunk to {:?}", blocklist_path))?;
+            .with_context(|| format!("Failed to write chunk to {}", blocklist_path.display()))?;
 
         // update progress bar
         let new = downloaded + chunk.len() as u64;
@@ -116,7 +116,7 @@ pub async fn download_all_blocklists() -> Result<()> {
     let mut handles = vec![];
     let style = ProgressStyle::default_bar()
         .template("{spinner:.green} [{elapsed_precise}] {msg:25!} [{bar:20.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
-        .unwrap()
+        .expect("bar styling")
         .progress_chars("##-");
 
     for (url, path) in BLOCKLISTS {
@@ -133,7 +133,7 @@ pub async fn download_all_blocklists() -> Result<()> {
         handles.push(tokio::spawn(async move {
             download_blocklist(&url, &blocklists_dir, &path, &client, &pb)
                 .await
-                .context(format!("Failed to download {}", path))
+                .context(format!("Failed to download {path}"))
         }));
     }
 
@@ -154,14 +154,14 @@ pub fn check_blocklists(har: &Har) -> Result<()> {
     let domains = list_domains::list_domains(har);
     let blocklists_dir = get_blocklists_dir()?;
 
-    for (_, filename) in BLOCKLISTS.iter() {
+    for (_, filename) in &BLOCKLISTS {
         let mut blocklist_domains = HashSet::new();
 
         let path = blocklists_dir.join(filename);
         let content = fs::read_to_string(&path).with_context(|| {
             format!(
-                "Failed to read blocklist: {:?}\nHave you run {}?\n{}",
-                path,
+                "Failed to read blocklist: {}\nHave you run {}?\n{}",
+                path.display(),
                 "harper - get-block-lists".green(),
                 "Caused by".red().bold()
             )
@@ -191,7 +191,7 @@ pub fn check_blocklists(har: &Har) -> Result<()> {
             }
 
             if found {
-                println!("{}: {}", "Found".yellow(), domain.red())
+                println!("{}: {}", "Found".yellow(), domain.red());
             }
         }
         println!();

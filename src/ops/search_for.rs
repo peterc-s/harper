@@ -1,7 +1,7 @@
 use crate::har::{Har, Request};
 use serde::Serialize;
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[derive(Clone, Debug)]
 pub struct SearchResult<'a> {
     pub request_num: usize,
@@ -30,25 +30,25 @@ macro_rules! check_fields {
             );
         )+
     };
-    (
-        $obj:expr,
-        $prefix:expr,
-        [$(($field:literal, $expr:expr, maybe)),+ $(,)?],
-        $search_str:expr,
-        $in_fields:expr
-    ) => {
-        $(
-            if let Some(value) = $expr {
-                check_serialised_field(
-                    value,
-                    $field,
-                    $search_str,
-                    $in_fields,
-                    $prefix,
-                );
-            }
-        )+
-    };
+    // (
+    //     $obj:expr,
+    //     $prefix:expr,
+    //     [$(($field:literal, $expr:expr, maybe)),+ $(,)?],
+    //     $search_str:expr,
+    //     $in_fields:expr
+    // ) => {
+    //     $(
+    //         if let Some(value) = $expr {
+    //             check_serialised_field(
+    //                 value,
+    //                 $field,
+    //                 $search_str,
+    //                 $in_fields,
+    //                 $prefix,
+    //             );
+    //         }
+    //     )+
+    // };
 }
 
 fn check_serialised_field<T: Serialize>(
@@ -69,7 +69,7 @@ fn check_serialised_field<T: Serialize>(
             let field = if prefix.is_empty() {
                 field_name.to_string()
             } else {
-                format!("{}_{}", prefix, field_name)
+                format!("{prefix}_{field_name}")
             };
             in_fields.push(field);
         }
@@ -132,7 +132,9 @@ pub fn search_for<'a>(har: &'a Har, search_str: &'a str) -> Vec<SearchResult<'a>
                 &mut in_fields
             );
 
-            if !in_fields.is_empty() {
+            if in_fields.is_empty() {
+                None
+            } else {
                 Some(SearchResult {
                     request_num: i + 1,
                     time: entry.started_date_time.clone(),
@@ -141,8 +143,6 @@ pub fn search_for<'a>(har: &'a Har, search_str: &'a str) -> Vec<SearchResult<'a>
                     in_fields,
                     request: &entry.request,
                 })
-            } else {
-                None
             }
         })
         .collect()

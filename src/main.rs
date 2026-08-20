@@ -1,14 +1,15 @@
-use anyhow::{Context, Result, anyhow};
-use base64::{Engine, prelude::BASE64_STANDARD_NO_PAD};
+use anyhow::{anyhow, Context as _, Result};
+use base64::prelude::BASE64_STANDARD_NO_PAD;
+use base64::Engine as _;
 use chrono::{DateTime, Local};
-use clap::{CommandFactory, Parser, Subcommand, error::ErrorKind};
-use colored::Colorize;
+use clap::{error::ErrorKind, CommandFactory as _, Parser, Subcommand};
+use colored::Colorize as _;
 use serde_json::{self, error::Category};
 use std::{
     cmp::Reverse,
     collections::HashMap,
     fs,
-    io::{self, IsTerminal, Read},
+    io::{self, IsTerminal as _, Read as _},
     process::ExitCode,
 };
 use tldextract::TldOption;
@@ -100,8 +101,8 @@ enum SortBy {
 impl AsRef<str> for SortBy {
     fn as_ref(&self) -> &str {
         match self {
-            SortBy::Frequency => "frequency",
-            SortBy::Alpha => "alpha",
+            Self::Frequency => "frequency",
+            Self::Alpha => "alpha",
         }
     }
 }
@@ -123,9 +124,8 @@ async fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-#[allow(unreachable_code)]
 fn read_input(file_path: &String) -> Result<String> {
-    fs::read_to_string(file_path).with_context(|| format!("Failed to read file: {}", file_path))
+    fs::read_to_string(file_path).with_context(|| format!("Failed to read file: {file_path}"))
 }
 
 fn parse_har(input: &str) -> Result<Har> {
@@ -172,6 +172,7 @@ fn parse_har(input: &str) -> Result<Har> {
             }
 
             // create error message based off error class
+            #[expect(clippy::match_wildcard_for_single_variants)]
             let error_msg = match error_class {
                 Category::Syntax => format!(
                     "{}: {}",
@@ -179,16 +180,13 @@ fn parse_har(input: &str) -> Result<Har> {
                     err_str.split(" at ").next().unwrap_or(&err_str)
                 ),
                 Category::Eof => "Unexpected end of JSON input".red().bold().to_string(),
-                Category::Data => {
-                    if let Some(field) = err_str
-                        .strip_prefix("missing field `")
-                        .and_then(|s| s.split('`').next())
-                    {
-                        format!("{}: `{}`", "Missing required field".red().bold(), field)
-                    } else {
-                        format!("{}: {}", "Data validation error".red().bold(), err_str)
-                    }
-                }
+                Category::Data => err_str
+                    .strip_prefix("missing field `")
+                    .and_then(|s| s.split('`').next())
+                    .map_or_else(
+                        || format!("{}: {}", "Data validation error".red().bold(), err_str),
+                        |field| format!("{}: `{}`", "Missing required field".red().bold(), field),
+                    ),
                 _ => format!("{}: {}", "JSON parsing error".red().bold(), err_str),
             };
 
@@ -204,6 +202,7 @@ fn parse_har(input: &str) -> Result<Har> {
         .context("Failed to parse HAR file")
 }
 
+#[expect(clippy::too_many_lines)]
 async fn run() -> Result<()> {
     let args = Args::parse();
 
@@ -222,10 +221,10 @@ async fn run() -> Result<()> {
                     "Missing required argument: either provide a file or pipe input.",
                 );
 
-                let clap_err_str = format!("{}", clap_err);
+                let clap_err_str = format!("{clap_err}");
                 let clap_err_str = clap_err_str.trim_start_matches("error: ");
 
-                return Err(anyhow!(format!("{}", clap_err_str)));
+                return Err(anyhow!(format!("{clap_err_str}")));
             }
 
             let mut contents = String::new();
@@ -264,7 +263,7 @@ async fn run() -> Result<()> {
 
             match count_args.sort {
                 SortBy::Alpha => {
-                    count_urls::print_tree(&domain_tree, &mut |(name, _)| name.to_string());
+                    count_urls::print_tree(&domain_tree, &mut |(name, _)| (*name).clone());
                 }
                 SortBy::Frequency => {
                     count_urls::print_tree(&domain_tree, &mut |(_, node)| Reverse(node.count));
@@ -275,7 +274,7 @@ async fn run() -> Result<()> {
         Commands::ListDomains => {
             let domains = list_domains::list_domains(&parsed);
             for domain in domains {
-                println!("{}", domain);
+                println!("{domain}");
             }
         }
 
@@ -287,14 +286,14 @@ async fn run() -> Result<()> {
             counts_vec.sort_by_key(|a| Reverse(a.1));
 
             for (scheme, count) in counts_vec {
-                println!("{}: {}", scheme, count);
+                println!("{scheme}: {count}");
             }
         }
 
         Commands::CountRequests => {
             let count = count_requests::get_counts(&parsed);
 
-            println!("Found {} requests.", count);
+            println!("Found {count} requests.");
         }
 
         Commands::SearchFor(search_args) => {
@@ -326,9 +325,7 @@ async fn run() -> Result<()> {
 
         Commands::DNSLookup => dns::dns_lookup(&parsed).await?,
 
-        Commands::GetBlockLists => unreachable!(),
-
-        Commands::RemoveBlockLists => unreachable!(),
+        Commands::GetBlockLists | Commands::RemoveBlockLists => unreachable!(),
 
         Commands::BlockList => blocklist::check_blocklists(&parsed)?,
     }

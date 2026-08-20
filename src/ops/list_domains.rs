@@ -9,7 +9,7 @@ pub fn list_domains(har: &Har) -> Vec<String> {
         let url_str = &entry.request.url;
 
         if let Some(host) = match Url::parse(url_str) {
-            Ok(parsed_url) => parsed_url.host_str().map(|x| x.to_string()),
+            Ok(parsed_url) => parsed_url.host_str().map(std::string::ToString::to_string),
             Err(_) => continue,
         } {
             urls.insert(host);
